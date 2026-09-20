@@ -1,0 +1,10 @@
+{
+  "name": "مستودع سامو للأدوية",
+  "description": "نظام إدارة مستودع الأدوية والصيدلية مع قاعدة بيانات متكاملة لإدارة المخزون والمبيعات والطلبيات",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

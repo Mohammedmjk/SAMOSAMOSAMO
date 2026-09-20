@@ -1,0 +1,1955 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>مستودع سامو للأدوية</title>
+  <meta name="description" content="نظام إدارة مستودع الأدوية والصيدلية مع قاعدة بيانات متكاملة لإدارة المخزون والمبيعات والطلبيات" />
+  <meta property="og:title" content="مستودع سامو للأدوية" />
+  <meta property="og:description" content="نظام إدارة مستودع الأدوية والصيدلية مع قاعدة بيانات متكاملة لإدارة المخزون والمبيعات والطلبيات" />
+  <meta name="theme-color" content="#007aff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="سامو للأدوية">
+  
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+  <style>
+    :root {
+      --ios-bg: #f2f2f7;
+      --ios-card: #ffffff;
+      --ios-text: #000000;
+      --ios-sub: #8e8e93;
+      --ios-blue: #007aff;
+      --ios-green: #34c759;
+      --ios-red: #ff3b30;
+      --ios-orange: #ff9500;
+      --ios-purple: #af52de;
+      --ios-border: #e5e5ea;
+      --ios-btn-sec: #e5e5ea;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--ios-bg);
+      color: var(--ios-text);
+      padding-bottom: 95px;
+    }
+
+    header {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 0.5px solid rgba(0,0,0,0.15);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-title { font-size: 17px; font-weight: 700; }
+    .header-sub { font-size: 11px; color: var(--ios-sub); }
+
+    .btn {
+      background: var(--ios-blue);
+      color: #fff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn:active { opacity: 0.7; }
+    .btn-sec { background: var(--ios-btn-sec); color: var(--ios-text); }
+    .btn-danger { background: #ffe5e5; color: var(--ios-red); }
+    .btn-admin { background: #3a3a3c; }
+
+    .tabs-bar {
+      display: flex;
+      background: #e3e3e8;
+      border-radius: 10px;
+      padding: 3px;
+      margin: 12px 16px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+      overflow-x: auto;
+    }
+    .tab-item {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #3a3a3c;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+    .tab-item.active {
+      background: #ffffff;
+      color: #000;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+    }
+
+    .alert-banner-container {
+      padding: 0 16px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .alert-strip {
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .alert-expired { background: #ffe5e5; color: var(--ios-red); border: 1px solid #ffb3b3; }
+    .alert-near { background: #fff4e5; color: var(--ios-orange); border: 1px solid #ffd8a8; }
+    .alert-low { background: #f3f0ff; color: var(--ios-purple); border: 1px solid #dcd2ff; }
+    .alert-sync { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+
+    .search-wrapper { padding: 0 16px 10px; }
+    .search-row-flex {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .search-box-rel {
+      position: relative;
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+    .search-input {
+      width: 100%;
+      background: #e3e3e8;
+      border: 1px solid transparent;
+      padding: 10px 40px 10px 40px;
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+      text-align: right;
+      transition: all 0.2s;
+    }
+    .search-input:focus {
+      background: #fff;
+      border-color: var(--ios-blue);
+      box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
+    }
+    .search-suggestions {
+      position: absolute;
+      top: calc(100% + 5px);
+      right: 0;
+      left: 0;
+      z-index: 120;
+      background: #fff;
+      border: 1px solid var(--ios-border);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      overflow: hidden;
+      display: none;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .search-suggestion-item {
+      width: 100%;
+      border: 0;
+      background: #fff;
+      text-align: right;
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f2;
+      font-size: 13px;
+    }
+    .search-suggestion-item:last-child { border-bottom: 0; }
+    .search-suggestion-item:hover,
+    .search-suggestion-item:active { background: #f2f7ff; }
+    .search-suggestion-main { font-weight: 800; }
+    .search-suggestion-sub { font-size: 10px; color: var(--ios-sub); margin-top: 2px; }
+
+    .camera-scan-icon-btn {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #ffffff;
+      border: 1px solid #d1d1d6;
+      border-radius: 8px;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--ios-blue);
+    }
+
+    .ai-image-search-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #ffffff;
+      border: 1px solid #d1d1d6;
+      border-radius: 8px;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 50%;
+      background: #d1d1d6;
+      color: #fff;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 1;
+      z-index: 5;
+      padding: 0;
+    }
+    .search-clear-btn.main-clear { left: 44px; right: auto; }
+    .search-clear-btn.pos-clear { left: 44px; right: auto; }
+    #search-box.search-input, #pos-search-box.search-input { padding-left: 78px; }
+    .search-clear-btn:hover { background: #8e8e93; }
+
+    #prod-list-container {
+      padding-right: 0 !important;
+    }
+
+    .products-scroll-counter {
+      position: relative;
+      top: auto !important;
+      right: auto;
+      z-index: 1;
+      width: fit-content;
+      min-height: 0;
+      margin: 0 0 2px auto;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: #e5e5ea;
+      border: 1px solid #d1d1d6;
+      box-shadow: none;
+      font-size: 9px;
+      font-weight: 700;
+      color: #636366;
+      display: block;
+      text-align: center;
+      direction: rtl;
+      pointer-events: none;
+      white-space: nowrap;
+      transition: none;
+    }
+
+    .products-scroll-counter-text {
+      display: block;
+      width: auto;
+      line-height: 1.2;
+      white-space: nowrap;
+      color: #636366;
+      text-shadow: none;
+    }
+
+    .products-scroll-track, .products-scroll-progress { display: none !important; }
+
+    #modal-inspect-order .modal-sheet { position: relative !important; }
+    #modal-inspect-order .mobile-inspect-close {
+      display: flex !important;
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 100;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      align-items: center;
+      justify-content: center;
+      background: #ff3b30;
+      color: #fff;
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    @media (min-width: 700px) {
+      #modal-inspect-order .mobile-inspect-close { display: none !important; }
+    }
+    .prod-last-request {
+      margin-top: 4px;
+      font-size: 11px;
+      color: #71717a;
+      background: #f4f4f5;
+      border: 1px solid #e4e4e7;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      width: fit-content;
+      line-height: 1.3;
+    }
+    .prod-last-request strong { color: #3f3f46; font-weight: 700; }
+    .prod-last-request .last-order-tag { color: #0284c7; font-weight: 700; }
+
+    .icon-action-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1.5px solid #d1d1d6;
+      color: var(--ios-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .icon-action-circle:active { transform: scale(0.93); background: #f2f2f7; }
+
+    .dropdown-box {
+      position: absolute;
+      left: 0;
+      top: 50px;
+      background: #fff;
+      border: 1px solid var(--ios-border);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      width: 280px;
+      padding: 16px;
+      z-index: 999;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .dropdown-box.show { display: flex; }
+    .dropdown-box label { font-size: 12px; font-weight: 700; color: #1c1c1e; margin-bottom: 3px; display: block; }
+    .dropdown-box select {
+      width: 100%;
+      background: #f2f2f7;
+      border: 1px solid #c7c7cc;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      outline: none;
+      color: #000;
+    }
+
+    .product-list {
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .prod-card {
+      background: var(--ios-card);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .prod-top {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .prod-img-thumb {
+      width: 50px;
+      height: 50px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #f2f2f7;
+      border: 1px solid var(--ios-border);
+      flex-shrink: 0;
+    }
+    .prod-info-col { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .prod-name { 
+      font-size: 17px; 
+      font-weight: 800; 
+      color: #111; 
+      line-height: 1.3; 
+    }
+    .prod-sub-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .badge-form { background: #e0f2fe; color: #0369a1; }
+    .badge-exp-bar { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; font-weight: 800; }
+    .badge-near-bar { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; font-weight: 800; }
+    .badge-normal-bar { background: #f4f4f5; color: #52525b; font-weight: 700; }
+    .badge-out { background: #ffebeb; color: var(--ios-red); font-weight: 800; text-align: center; padding: 10px; font-size: 14px; width: 100%; border-radius: 10px; display: block; }
+
+    .prod-cart-action-area {
+      width: 100%;
+      margin-top: 4px;
+    }
+    .btn-add-cart-wide {
+      background: #eef2ff;
+      color: var(--ios-blue);
+      border: 1.5px solid #c7d2fe;
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 2px 6px rgba(0, 122, 255, 0.12);
+    }
+    .btn-add-cart-wide:active { opacity: 0.7; transform: scale(0.98); }
+
+    .counter-control-wide {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #ffffff;
+      border: 1.5px solid var(--ios-blue);
+      border-radius: 12px;
+      padding: 4px 12px;
+      width: 100%;
+      box-shadow: 0 2px 6px rgba(0, 122, 255, 0.12);
+    }
+    .counter-btn-wide {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: none;
+      background: var(--ios-blue);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .counter-val-wide {
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--ios-blue);
+      background: #f2f2f7;
+      padding: 4px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--ios-border);
+      min-width: 60px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .prod-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 4px;
+      border-top: 0.5px solid var(--ios-border);
+    }
+    .prod-price { font-size: 17px; font-weight: 800; color: var(--ios-green); }
+    .prod-orig-price { font-size: 12px; color: var(--ios-sub); text-decoration: line-through; margin-left: 6px; }
+    .prod-stock-lbl { font-size: 13px; font-weight: 700; color: var(--ios-sub); }
+
+    /* Dual Screen POS Layout */
+    .pos-dual-screens {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 16px;
+      padding: 0 16px;
+      align-items: start;
+    }
+    @media (max-width: 950px) {
+      .pos-dual-screens { grid-template-columns: 1fr; gap: 14px; }
+    }
+    .pos-screen {
+      background: var(--ios-card);
+      border-radius: 16px;
+      border: 1px solid var(--ios-border);
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .pos-screen-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .pos-screen-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pos-screen-icon {
+      font-size: 22px;
+      line-height: 1;
+    }
+    .pos-category-chips {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .pos-category-chips::-webkit-scrollbar { display: none; }
+    .pos-chip {
+      background: var(--ios-bg);
+      border: 1px solid var(--ios-border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ios-sub);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .pos-chip.active, .pos-chip:hover {
+      background: var(--ios-blue);
+      color: #fff;
+      border-color: var(--ios-blue);
+    }
+    .pos-grid-items {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      max-height: 62vh;
+      overflow-y: auto;
+      padding-left: 2px;
+      padding-bottom: 10px;
+    }
+    @media (max-width: 600px) {
+      .pos-grid-items { grid-template-columns: 1fr; }
+    }
+    .pos-card-med {
+      background: #fff;
+      border: 1px solid var(--ios-border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 6px;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .pos-card-med:hover {
+      border-color: #93c5fd;
+      box-shadow: 0 2px 6px rgba(0,122,255,0.08);
+    }
+    .pos-card-name {
+      font-weight: 800;
+      font-size: 13px;
+      color: var(--ios-text);
+      line-height: 1.3;
+    }
+    .pos-card-meta {
+      font-size: 11px;
+      color: var(--ios-sub);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .pos-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 0.5px solid var(--ios-border);
+    }
+
+    /* Screen 2: Editable Cart Styles */
+    .pos-cart-meta-box {
+      background: #f8fafc;
+      border: 1px solid var(--ios-border);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .pos-form-row {
+      margin-bottom: 8px;
+    }
+    .pos-form-row label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ios-sub);
+      margin-bottom: 3px;
+    }
+    .pos-form-row input, .pos-form-row select {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--ios-border);
+      font-size: 12px;
+      background: #fff;
+      color: var(--ios-text);
+    }
+    .pos-cart-items-wrapper {
+      max-height: 40vh;
+      overflow-y: auto;
+      border-top: 1px solid var(--ios-border);
+      border-bottom: 1px solid var(--ios-border);
+      padding: 8px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pos-cart-item-row {
+      background: #fff;
+      border: 1px solid var(--ios-border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pos-cart-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .pos-cart-item-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .pos-qty-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      padding: 2px;
+    }
+    .pos-qty-btn {
+      width: 26px;
+      height: 26px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pos-qty-input {
+      width: 44px;
+      height: 26px;
+      border: 1px solid var(--ios-border);
+      border-radius: 6px;
+      text-align: center;
+      font-weight: 800;
+      font-size: 13px;
+      background: #fff;
+      padding: 0;
+    }
+    .pos-price-input {
+      width: 80px;
+      height: 26px;
+      border: 1px solid var(--ios-border);
+      border-radius: 6px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      background: #fff;
+      padding: 0 4px;
+    }
+    .pos-cart-footer {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 4px;
+    }
+    .pos-calc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--ios-sub);
+    }
+    .pos-calc-net {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--ios-text);
+      border-top: 1px dashed var(--ios-border);
+      padding-top: 6px;
+      margin-top: 2px;
+    }
+    .pos-actions-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    /* Barcode Studio Modal Styling */
+    #modal-direct-barcode .modal-sheet {
+      width: min(680px, 96vw) !important;
+      max-width: 680px !important;
+    }
+    .printer-status-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .barcode-sticker-canvas {
+      background: #fff;
+      border: 2px dashed #94a3b8;
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 12px auto;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      transition: all 0.2s;
+    }
+
+    .finance-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      padding: 0 16px;
+      margin-bottom: 14px;
+    }
+    .fin-card {
+      background: var(--ios-card);
+      border: 1px solid var(--ios-border);
+      padding: 12px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+      position: relative;
+      overflow: hidden;
+    }
+    .fin-title { font-size: 11px; font-weight: 600; color: var(--ios-sub); }
+    .fin-amount { font-size: 17px; font-weight: 800; margin-top: 5px; }
+
+    .floating-send-btn {
+      position: fixed;
+      bottom: 22px;
+      left: 20px;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: var(--ios-blue);
+      color: white;
+      border: none;
+      box-shadow: 0 6px 18px rgba(0, 122, 255, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 90;
+      transition: transform 0.2s;
+    }
+    .floating-send-btn:active { transform: scale(0.92); }
+    .cart-badge-dot {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      background: var(--ios-red);
+      color: white;
+      font-size: 11px;
+      font-weight: 800;
+      border-radius: 12px;
+      padding: 2px 7px;
+      border: 2px solid #fff;
+    }
+
+    .modal-overlay {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background: rgba(0,0,0,0.48);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 2147483000 !important;
+      isolation: isolate;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+    .modal-overlay.is-open { display: flex !important; }
+    .modal-overlay .modal-sheet { position: relative; z-index: 2147483001 !important; margin: auto; }
+    .modal-sheet {
+      background: #ffffff;
+      width: 100%;
+      max-width: 550px;
+      border-radius: 20px;
+      padding: 20px;
+      max-height: 90vh;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      box-shadow: 0 10px 35px rgba(0,0,0,0.25);
+      animation: modalFadeIn 0.22s ease-out;
+      display: flex;
+      flex-direction: column;
+    }
+    @keyframes modalFadeIn { 
+      from { opacity: 0; transform: scale(0.96) translateY(10px); } 
+      to { opacity: 1; transform: scale(1) translateY(0); } 
+    }
+    .sheet-head { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 14px; 
+      border-bottom: 0.5px solid var(--ios-border); 
+      padding-bottom: 10px;
+      flex-shrink: 0;
+    }
+    .sheet-title { font-size: 17px; font-weight: 700; }
+    .form-row { margin-bottom: 11px; }
+    .form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--ios-sub); margin-bottom: 4px; }
+    .form-row input, .form-row select {
+      width: 100%;
+      background: #f2f2f7;
+      border: 1px solid var(--ios-border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    #scanner-video-box {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+      min-height: 250px;
+    }
+
+    .barcode-preview-box {
+      background: #fff;
+      border: 1px solid #c7c7cc;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #invoice-a4-sheet { display: none; }
+    @media print {
+      body * { visibility: hidden; }
+      #invoice-a4-sheet, #invoice-a4-sheet * { visibility: visible; }
+      #invoice-a4-sheet { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  
+    html {
+      height: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      min-height: 100%;
+      background-color: var(--ios-bg);
+      color: var(--ios-text);
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 125px !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+
+    body > header {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 100 !important;
+      border-bottom: 0.5px solid rgba(0,0,0,0.15);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    body > .tabs-bar {
+      display: flex;
+      background: #f2f2f7;
+      border-radius: 10px;
+      padding: 3px;
+      margin: 8px 16px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+      overflow-x: auto;
+      flex-shrink: 0;
+      position: sticky;
+      top: 57px;
+      z-index: 95;
+    }
+
+    #view-home {
+      width: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: visible !important;
+    }
+
+    #view-home .alert-banner-container {
+      flex: 0 0 auto;
+    }
+
+    #view-home .search-wrapper {
+      position: sticky;
+      top: 103px;
+      z-index: 90;
+      background: var(--ios-bg);
+      padding: 4px 16px 8px;
+    }
+
+    #prod-list-container {
+      width: 100%;
+      min-height: 0;
+      height: auto !important;
+      overflow: visible !important;
+      padding-bottom: 30px;
+    }
+
+    #view-home .search-box-rel,
+    #view-home .search-wrapper {
+      transform: none !important;
+    }
+
+    #view-incoming,
+    #view-log,
+    #view-pos,
+    #view-staff,
+    #view-reports {
+      width: 100%;
+      min-height: 0;
+      overflow: visible !important;
+      padding-bottom: 30px;
+    }
+
+    #incoming-orders-container,
+    #orders-list-container,
+    #staff-report-container {
+      width: 100%;
+      min-height: 0;
+      overflow: visible !important;
+      padding-bottom: 30px;
+    }
+
+    #modal-send-order .modal-sheet, 
+    #modal-inspect-order .modal-sheet, 
+    #modal-edit-sent-order .modal-sheet,
+    #modal-admin-auth .modal-sheet,
+    #modal-direct-barcode .modal-sheet,
+    #modal-edit-item .modal-sheet,
+    #modal-add .modal-sheet {
+      width: min(550px, 96vw);
+      max-width: 550px;
+      max-height: 90vh;
+      border-radius: 20px !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      margin: auto;
+    }
+    .modal-sheet .sheet-head {
+      position: sticky;
+      top: -20px;
+      z-index: 20;
+      background: #fff;
+      padding-top: 10px;
+      margin-top: -10px;
+    }
+    #checkout-summary, #inspect-order-items-box, #edit-sent-items-box {
+      max-height: 44vh !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      -webkit-overflow-scrolling: touch;
+      border: 1px solid var(--ios-border);
+      border-radius: 10px;
+      padding: 6px 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <div class="header-title">مستودع سامو للأدوية</div>
+      <div id="conn-lbl" class="header-sub">تطبيق الطلبات المباشر</div>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <div id="admin-header-user-picker" style="display: none; align-items: center; gap: 4px; background: #e0f2fe; padding: 4px 10px; border-radius: 16px; border: 1px solid #bae6fd;">
+        <span id="header-user-lbl" style="font-size: 12px; color: #0369a1; font-weight: 700;">👤 الموظف:</span>
+        <select id="staff-name-select" onchange="onStaffSelected(this.value)" style="background: transparent; border: none; font-size: 12px; color: #0369a1; font-weight: 800; outline: none; cursor: pointer;">
+          <option value="">اختر...</option>
+        </select>
+      </div>
+      <button class="btn btn-sec" onclick="triggerSync()">تحديث</button>
+      <button id="admin-toggle-btn" class="btn btn-admin" onclick="triggerAdmin()">دخول المذخر</button>
+    </div>
+  </header>
+
+  <div class="tabs-bar">
+    <div class="tab-item active" id="tab-btn-home" onclick="setMainTab('home')">الأدوية والمخزن</div>
+    <div class="tab-item" id="tab-btn-pos" style="display: none;" onclick="setMainTab('pos')">🛒 نافذة نقطة البيع (POS)</div>
+    <div class="tab-item" id="tab-btn-incoming" style="display: none;" onclick="setMainTab('incoming')">📥 الطلبيات الواردة <span id="incoming-count-badge" style="display:none;background:#ff3b30;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;margin-right:3px;">0</span></div>
+    <div class="tab-item" id="tab-btn-log" onclick="setMainTab('log')"><span id="log-tab-title">الطلبيات الصادرة</span></div>
+    <div class="tab-item" id="tab-btn-staff" style="display: none;" onclick="setMainTab('staff')">👤 تقارير الموظفين</div>
+    <div class="tab-item" id="tab-btn-reports" style="display: none;" onclick="setMainTab('reports')">التقارير المالية</div>
+  </div>
+
+  <div id="view-home">
+    <div class="alert-banner-container" id="alerts-container"></div>
+
+    <div class="search-wrapper">
+      <div class="search-row-flex">
+        <div class="search-box-rel">
+          <input type="text" id="search-box" class="search-input" autocomplete="off" placeholder="🔍 ابحث باسم الدواء أو الشركة أو الباركود..." oninput="handleMainSearchInput()" onfocus="renderSearchSuggestions()">
+          <button type="button" id="search-clear-btn" class="search-clear-btn main-clear" onclick="clearSearchInput('search-box')" title="مسح البحث">×</button>
+          <button class="camera-scan-icon-btn" onclick="openCameraScanner('search-box')" title="مسح باركود بالكاميرا">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+          </button>
+          <button type="button" class="ai-image-search-btn" onclick="openAiMedicineCamera('search')" title="تصوير الدواء والبحث عنه بالذكاء الاصطناعي">📷✨</button>
+          <div id="search-suggestions" class="search-suggestions"></div>
+        </div>
+
+        <div class="icon-action-circle" id="toggle-out-stock-circle" onclick="toggleHideOutStock()" title="إخفاء/إظهار الأدوية النافذة">
+          👁️
+        </div>
+
+        <div class="icon-action-circle" onclick="toggleDropdown('filter-dropdown', event)" title="فلترة متقدمة">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          <div id="filter-dropdown" class="dropdown-box" onclick="event.stopPropagation()">
+            <div>
+              <label>الشكل الدوائي:</label>
+              <select id="filter-form" onchange="renderProducts()">
+                <option value="">-- الكل --</option>
+                <option value="Tablet">Tablet (حبوب)</option>
+                <option value="Capsule">Capsule (كبسول)</option>
+                <option value="Syrup">Syrup (شراب)</option>
+                <option value="Suspension">Suspension (معلق)</option>
+                <option value="Injection">Injection (حقن)</option>
+                <option value="Vial">Vial (فيال)</option>
+                <option value="Ampoule">Ampoule (أمبول)</option>
+                <option value="Cream">Cream (كريم)</option>
+                <option value="Ointment">Ointment (مرهم)</option>
+                <option value="Sachet">Sachet (ساشيت)</option>
+                <option value="Gel">Gel (جل)</option>
+                <option value="Drops">Drops (قطرات)</option>
+              </select>
+            </div>
+            <div>
+              <label>حالة الصلاحية:</label>
+              <select id="filter-expiry" onchange="renderProducts()">
+                <option value="">-- الكل --</option>
+                <option value="valid">صالح (سليم)</option>
+                <option value="near">قريب الانتهاء (6 أشهر)</option>
+                <option value="expired">منتهي الصلاحية (تالف)</option>
+              </select>
+            </div>
+            <div>
+              <label>حالة المتوفر:</label>
+              <select id="filter-stock" onchange="renderProducts()">
+                <option value="">-- الكل --</option>
+                <option value="available">متوفر بالمخزن</option>
+                <option value="shortage">نواقص / نفد</option>
+              </select>
+            </div>
+            <div>
+              <label>الشركة المصنعة:</label>
+              <select id="filter-company" onchange="renderProducts()">
+                <option value="">-- جميع الشركات --</option>
+              </select>
+            </div>
+            <button class="btn btn-sec" style="font-size:11px; padding:6px; justify-content:center; margin-top:4px;" onclick="resetAllFilters()">إعادة ضبط الفلاتر</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+        <button type="button" id="add-prod-btn" class="btn" style="display: none; background: var(--ios-green); font-size:12px; padding:5px 12px;" onclick="openAddModal()">+ مادة جديدة</button>
+      </div>
+    </div>
+
+    <div class="product-list" id="prod-list-container"></div>
+  </div>
+
+  <div id="view-pos" style="display: none;">
+    <!-- Dual Screen POS System -->
+    <div class="pos-dual-screens">
+      <!-- Screen 1: شاشة المواد والأدوية -->
+      <div class="pos-screen pos-screen-products" id="pos-screen-products">
+        <div class="pos-screen-header">
+          <div class="pos-screen-title">
+            <span class="pos-screen-icon">💊</span>
+            <div>
+              <div style="font-size:16px;font-weight:800;color:var(--ios-blue);">شاشة المواد والأدوية</div>
+              <div style="font-size:11px;color:var(--ios-sub);" id="pos-products-count-lbl">جاري تحميل المواد...</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <div class="icon-action-circle" id="pos-toggle-out-stock-circle" onclick="togglePosHideOutStock()" title="إخفاء/إظهار المواد النافذة">
+              👁️
+            </div>
+          </div>
+        </div>
+
+        <!-- Search Bar with Scanner & Enter detection -->
+        <div class="search-row-flex" style="margin-bottom: 2px;">
+          <div class="search-box-rel" style="flex:1;">
+            <input type="text" id="pos-search-box" class="search-input" placeholder="🔍 ابحث باسم المادة، الشركة، أو امسح الباركود..." oninput="handlePosSearchInput()" onkeydown="handlePosBarcodeEnter(event)">
+            <button type="button" id="pos-search-clear-btn" class="search-clear-btn pos-clear" onclick="clearSearchInput('pos-search-box')" title="مسح">×</button>
+            <button class="camera-scan-icon-btn" onclick="openCameraScanner('pos-search-box')" title="مسح باركود بالكاميرا">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div class="pos-category-chips" id="pos-category-chips">
+          <button class="pos-chip active" onclick="filterPosByCategory('', this)">الكل</button>
+          <button class="pos-chip" onclick="filterPosByCategory('Tablet', this)">حبوب</button>
+          <button class="pos-chip" onclick="filterPosByCategory('Capsule', this)">كبسول</button>
+          <button class="pos-chip" onclick="filterPosByCategory('Syrup', this)">شراب</button>
+          <button class="pos-chip" onclick="filterPosByCategory('Injection', this)">حقن</button>
+          <button class="pos-chip" onclick="filterPosByCategory('Ointment', this)">مراهم</button>
+          <button class="pos-chip" onclick="filterPosByCategory('Drops', this)">قطرات</button>
+        </div>
+
+        <!-- Products Grid List -->
+        <div class="pos-grid-items" id="pos-grid-container"></div>
+      </div>
+
+      <!-- Screen 2: شاشة السلة وتجهيز الفاتورة (قابلة للتعديل) -->
+      <div class="pos-screen pos-screen-cart" id="pos-screen-cart">
+        <div class="pos-screen-header" style="border-bottom: 1px solid var(--ios-border); padding-bottom: 8px;">
+          <div class="pos-screen-title">
+            <span class="pos-screen-icon">🛒</span>
+            <div>
+              <div style="font-size:16px;font-weight:800;color:var(--ios-green);">شاشة السلة وتجهيز الفاتورة</div>
+              <div style="font-size:11px;color:var(--ios-sub);" id="pos-cart-count-lbl">السلة فارغة</div>
+            </div>
+          </div>
+          <button class="btn btn-sec" style="font-size:11px;padding:4px 8px;color:var(--ios-red);border-color:#fecaca;" onclick="clearPosCartPrompt()" title="تفريغ السلة">
+            🗑️ تفريغ
+          </button>
+        </div>
+
+        <!-- Customer & Order Details Form -->
+        <div class="pos-cart-meta-box">
+          <div class="pos-form-row">
+            <label>اسم الصيدلية / العميل:</label>
+            <input type="text" id="pos-ph-name" placeholder="اكتب أو اختر اسم الصيدلية..." list="pos-pharmacies-datalist" autocomplete="off" onchange="onPosPharmacySelected(this.value)">
+            <datalist id="pos-pharmacies-datalist"></datalist>
+          </div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:8px;">
+            <div class="pos-form-row" style="margin:0;">
+              <label>رقم هاتف الصيدلية:</label>
+              <input type="text" id="pos-ph-phone" placeholder="07XXXXXXXXX">
+            </div>
+            <div class="pos-form-row" style="margin:0;">
+              <label>نوع الفاتورة:</label>
+              <select id="pos-sale-type">
+                <option value="cash" selected>💵 نقدي (كاش)</option>
+                <option value="credit">📝 آجل (ذمم)</option>
+              </select>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--ios-sub); margin-top: 6px; display:flex; justify-content:space-between; align-items:center;">
+            <span>الموظف المجهز: <b id="pos-staff-badge" style="color: var(--ios-green);">غير مسجل</b></span>
+            <span id="pos-cart-items-stat" style="font-weight:700;color:var(--ios-blue);">0 مادة</span>
+          </div>
+        </div>
+
+        <!-- Editable Cart Items Container -->
+        <div class="pos-cart-items-wrapper" id="pos-cart-summary">
+          <div style="text-align: center; color: var(--ios-sub); font-size: 13px; padding: 25px;">السلة فارغة حالياً - انقر على المواد من الشاشة المقابلة لإضافتها</div>
+        </div>
+
+        <!-- Cart Financial Calculations -->
+        <div class="pos-cart-footer">
+          <div class="pos-calc-row">
+            <span>المجموع الفرعي:</span>
+            <span id="pos-subtotal-price" style="font-weight:700;color:var(--ios-text);">0 د.ع</span>
+          </div>
+          <div class="pos-calc-row" style="align-items:center;">
+            <span>خصم إضافي (د.ع):</span>
+            <input type="number" id="pos-discount-input" min="0" step="250" value="0" style="width:105px;padding:4px 8px;font-size:12px;border:1px solid var(--ios-border);border-radius:6px;text-align:center;font-weight:700;" oninput="recalcPosTotals()">
+          </div>
+          <div class="pos-calc-row pos-calc-net">
+            <span>المجموع الصافي النهائي:</span>
+            <span id="pos-total-price" style="color: var(--ios-green); font-size:18px;">0 د.ع</span>
+          </div>
+
+          <!-- Checkout & Print Action Buttons -->
+          <div class="pos-actions-grid">
+            <button class="btn" style="background:var(--ios-green);padding:11px;font-size:14px;font-weight:800;justify-content:center;box-shadow:0 4px 10px rgba(52,199,89,0.3);" onclick="executeDirectCashSale()">
+              ⚡ إتمام وصرف البيع المباشر
+            </button>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-sec" style="flex:1;justify-content:center;padding:9px;font-size:12px;" onclick="printPosThermalReceipt()">
+                🖨️ طباعة وصل فوري
+              </button>
+              <button class="btn btn-sec" style="flex:1;justify-content:center;padding:9px;font-size:12px;color:var(--ios-blue);border-color:#bfdbfe;" onclick="confirmPosOrderSubmission()">
+                📥 إرسال كطلب للمستودع
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-incoming" style="display: none; padding: 0 16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
+      <div>
+        <div style="font-size:15px;font-weight:800;color:var(--ios-blue);">📥 الطلبيات الواردة</div>
+        <div style="font-size:10px;color:var(--ios-sub);margin-top:2px;">الطلبات الواردة من مستخدمي البرنامج. يتم فحصها وتعديل كمياتها ثم اعتمادها لتنتقل إلى سجل الصادر.</div>
+      </div>
+      <button class="btn btn-sec" style="font-size:11px;padding:6px 10px;" onclick="triggerSync()">☁️ مزامنة</button>
+    </div>
+    <div id="incoming-orders-container" class="product-list"></div>
+  </div>
+
+  <div id="view-log" style="display: none; padding: 0 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap:8px;">
+      <div>
+        <div id="log-view-title" style="font-size: 14px; font-weight: 800; color: var(--ios-text);">الطلبيات الصادرة (المعتمدة فقط)</div>
+        <div id="log-view-subtitle" style="font-size: 11px; color: var(--ios-sub); margin-top:2px;">سجل الطلبيات المعتمدة والمجهزة حصراً الصادرة من المستودع.</div>
+      </div>
+      <button class="btn btn-sec" style="font-size: 11px; padding: 6px 10px;" onclick="triggerSync()">☁️ مزامنة الطلبات</button>
+    </div>
+    <div id="orders-list-container" class="product-list"></div>
+  </div>
+
+  <div id="view-staff" style="display: none; padding: 0 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div style="font-size: 15px; font-weight: 800; color: var(--ios-blue);">إدارة الموظفين والنشاطات والتقارير:</div>
+      <button id="admin-add-staff-btn" class="btn" style="display: none; background: var(--ios-green); font-size: 12px; padding: 6px 12px;" onclick="addNewStaffNamePrompt()">+ إضافة موظف جديد</button>
+    </div>
+    <div id="staff-report-container" class="product-list"></div>
+    <div class="prod-card" style="margin-top:12px;">
+      <div style="font-size:14px;font-weight:800;color:var(--ios-blue);margin-bottom:8px;">📊 تقرير موظف لفترة محددة</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
+        <div style="flex:1;min-width:170px;"><label style="font-size:10px;color:var(--ios-sub);">الموظف</label><select id="staff-report-select" style="width:100%;padding:8px;border:1px solid var(--ios-border);border-radius:9px;"></select></div>
+        <div><label style="font-size:10px;color:var(--ios-sub);">من</label><input type="date" id="staff-report-from" style="padding:8px;border:1px solid var(--ios-border);border-radius:9px;"></div>
+        <div><label style="font-size:10px;color:var(--ios-sub);">إلى</label><input type="date" id="staff-report-to" style="padding:8px;border:1px solid var(--ios-border);border-radius:9px;"></div>
+        <button class="btn" onclick="buildStaffPeriodReport()">عرض التقرير</button>
+        <button class="btn" style="background:#107c41;" onclick="exportSelectedStaffExcel()">📊 Excel</button>
+        <button class="btn" style="background:#dc2626;" onclick="exportSelectedStaffPDF()">📄 PDF</button>
+      </div>
+      <div id="staff-period-report" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <div id="view-reports" style="display: none;">
+    <div class="finance-grid">
+      <div class="fin-card">
+        <div class="fin-title">إجمالي عدد الصيدليات</div>
+        <div id="fin-ph-count" class="fin-amount" style="color: var(--ios-blue);">0 صيدلية</div>
+        <div class="mini-chart"><div class="mini-bar" style="height: 40%;"></div><div class="mini-bar" style="height: 70%;"></div><div class="mini-bar" style="height: 100%;"></div></div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-title">إجمالي عدد الطلبيات</div>
+        <div id="fin-orders-count" class="fin-amount" style="color: var(--ios-purple);">0 طلب</div>
+        <div class="mini-chart"><div class="mini-bar" style="height: 60%;"></div><div class="mini-bar" style="height: 40%;"></div><div class="mini-bar" style="height: 90%;"></div></div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-title">قيمة الأدوية بالمخزن</div>
+        <div id="fin-stock-val" class="fin-amount" style="color: var(--ios-green);">0 د.ع</div>
+        <div class="mini-chart"><div class="mini-bar" style="height: 80%;"></div><div class="mini-bar" style="height: 50%;"></div><div class="mini-bar" style="height: 70%;"></div></div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-title">قيمة الأدوية القريبة (رصيد > 0)</div>
+        <div id="fin-near-stock-val" class="fin-amount" style="color: var(--ios-orange);">0 د.ع</div>
+        <div class="mini-chart"><div class="mini-bar" style="height: 45%;"></div><div class="mini-bar" style="height: 75%;"></div><div class="mini-bar" style="height: 55%;"></div></div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-title">قيمة الأدوية المنتهية (رصيد > 0)</div>
+        <div id="fin-expired-stock-val" class="fin-amount" style="color: var(--ios-red);">0 د.ع</div>
+        <div class="mini-chart"><div class="mini-bar" style="height: 65%;"></div><div class="mini-bar" style="height: 35%;"></div><div class="mini-bar" style="height: 80%;"></div></div>
+      </div>
+      <div class="fin-card">
+        <div class="fin-title">إجمالي مبالغ المصروف</div>
+        <div id="fin-dispatched-val" class="fin-amount" style="color: var(--ios-blue);">0 د.ع</div>
+        <div class="mini-chart"><div class="mini-bar" style="height: 50%;"></div><div class="mini-bar" style="height: 80%;"></div><div class="mini-bar" style="height: 100%;"></div></div>
+      </div>
+    </div>
+
+    <div style="padding: 0 16px 14px; display: flex; flex-wrap: wrap; gap: 8px;">
+      <button class="btn" style="background: #107c41;" onclick="exportInventoryCSV()">📊 تصدير المخزون الكامل</button>
+      <button class="btn" style="background: #d97706;" onclick="exportNearExpiryCSV()">⏳ تصدير قريبة النفاذ</button>
+      <button class="btn" style="background: #dc2626;" onclick="exportExpiredCSV()">⚠️ تصدير التالفة (المنتهية)</button>
+      <button class="btn" style="background: #0284c7;" onclick="exportStaffCSV()">👤 تصدير تقرير الموظفين</button>
+      <button class="btn" style="background: #7c3aed;" onclick="exportOrdersCSV()">📑 تصدير حركات ومبيعات الصيدليات</button>
+      <button class="btn" style="background: #2563eb;" onclick="exportStockMovementsCSV()">📋 تصدير سجل حركات المخزون</button>
+    </div>
+
+    <div class="company-report-panel" style="margin: 12px 16px 0; background: var(--ios-card); border: 1px solid var(--ios-border); border-radius: 14px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.04);">
+      <div style="font-size: 14px; font-weight: 800; margin-bottom: 9px; color: var(--ios-blue);">📊 تقرير الشركة</div>
+      <div style="display:flex; gap:8px; align-items:stretch; flex-wrap:wrap;">
+        <div style="flex:1 1 220px; min-width:180px;">
+          <label style="display:block; font-size:11px; color:var(--ios-sub); margin-bottom:4px;">اختر الشركة:</label>
+          <select id="report-company-select" onchange="updateCompanyReport()" style="width:100%; padding:9px 10px; border:1px solid var(--ios-border); border-radius:10px; background:#fff; font-size:13px; outline:none;">
+            <option value="">-- اختر الشركة --</option>
+          </select>
+        </div>
+        <div style="flex:0 1 180px; min-width:145px; background:#f2f2f7; border-radius:10px; padding:8px 12px;">
+          <div style="font-size:10px; color:var(--ios-sub);">عدد مواد الشركة</div>
+          <div id="report-company-items" style="font-size:18px; font-weight:800; color:var(--ios-blue); margin-top:3px;">0 مادة</div>
+        </div>
+        <div style="flex:0 1 220px; min-width:170px; background:#f2f2f7; border-radius:10px; padding:8px 12px;">
+          <div style="font-size:10px; color:var(--ios-sub);">مبلغ الشركة بالمخزن</div>
+          <div id="report-company-amount" style="font-size:18px; font-weight:800; color:var(--ios-green); margin-top:3px;">0 د.ع</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="floating-send-btn" onclick="openSendModal()" title="إرسال الطلب (السلة)">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13"></line>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+    </svg>
+    <div id="cart-dot" class="cart-badge-dot" style="display: none;">0</div>
+  </button>
+
+  <div id="modal-scanner" class="modal-overlay">
+    <div class="modal-sheet">
+      <div class="sheet-head">
+        <div class="sheet-title">قارئ باركود</div>
+        <button class="btn btn-sec" onclick="closeCameraScanner()">إغلاق</button>
+      </div>
+      <div id="scanner-video-box">
+        <div id="reader" style="width:100%;"></div>
+      </div>
+      <div id="scanner-status" style="font-size:12px;color:var(--ios-sub);text-align:center;padding:9px 4px 4px;">وجّه الكاميرا نحو خطوط الباركود بشكل واضح.</div>
+      <button type="button" class="btn btn-sec" style="width:100%;justify-content:center;margin-top:6px;padding:10px;" onclick="scanBarcodeFromImage()">📷 اختيار صورة للباركود كبديل</button>
+      <input type="file" id="barcode-image-input" accept="image/*" capture="environment" style="display:none;">
+    </div>
+  </div>
+
+  <div id="modal-direct-barcode" class="modal-overlay">
+    <div class="modal-sheet" style="max-width: 680px; text-align: right;">
+      <div class="sheet-head">
+        <div>
+          <div class="sheet-title" style="display:flex;align-items:center;gap:8px;">
+            <span>🏷️</span>
+            <span>نافذة طباعة الباركود المتطورة</span>
+          </div>
+          <div style="font-size: 11px; color: var(--ios-sub); margin-top: 2px;">تتعرف تلقائياً على طابعات الباركود الحرارية وطابعات ويندوز وتلائم مقاسات الملصقات</div>
+        </div>
+        <button class="btn btn-sec" onclick="closeDirectBarcodeModal()">إغلاق ✕</button>
+      </div>
+
+      <!-- Printer Discovery & Recognition Box -->
+      <div class="printer-status-box" id="barcode-printer-status-card">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-size:24px;" id="printer-status-icon">🖨️</div>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:#166534;" id="printer-detected-title">جاري فحص الطابعات المتصلة...</div>
+            <div style="font-size:11px;color:#15803d;" id="printer-detected-detail">فحص منافذ USB ومشغل طابعات الباركود الحرارية</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sec" style="font-size:11px;padding:6px 12px;background:#fff;border-color:#86efac;color:#166534;font-weight:700;" onclick="detectAndPairPrinters()">
+          🔌 فحص وتوصيل USB
+        </button>
+      </div>
+
+      <!-- Grid of Settings: Printer Model, Method, and Label Size -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div class="form-row" style="margin:0;">
+          <label>الطابعة المحددة:</label>
+          <select id="print-printer-select" onchange="onPrinterSelectionChanged()">
+            <option value="auto_usb">🟢 [USB مباشر] اكتشاف تلقائي لطابعات Xprinter / TSC / Zebra</option>
+            <option value="xprinter">🖨️ طابعة Xprinter XP-365B / XP-420B (حراري مباشر)</option>
+            <option value="tsc">🖨️ طابعة TSC TTP-244 Pro / TE200 (TSPL)</option>
+            <option value="zebra">🖨️ طابعة Zebra ZD220 / ZP450 (ZPL)</option>
+            <option value="bixolon">🖨️ طابعة Bixolon SLP-TX400 (Direct)</option>
+            <option value="windows" selected>🖨️ طابعة الباركود الافتراضية بنظام Windows</option>
+            <option value="bridge">🌐 جسر الطباعة المحلي (Port 9090)</option>
+          </select>
+        </div>
+
+        <div class="form-row" style="margin:0;">
+          <label>طريقة طباعة الباركود:</label>
+          <select id="print-method-select" onchange="onPrintSettingChanged()">
+            <option value="thermal_exact" selected>⚡ طباعة حرارية للملصقات (Gap Sensor 1:1 بدون إهدار)</option>
+            <option value="hardware_raw">📟 أوامر الطابعة المباشرة (Raw TSPL / ZPL)</option>
+            <option value="system_spooler">🖨️ مشغل Windows الافتراضي (System Spooler)</option>
+          </select>
+        </div>
+
+        <div class="form-row" style="margin:0;">
+          <label>مقاس الملصق (ورق الباركود):</label>
+          <select id="print-size-select" onchange="onPrintSizePresetChanged()">
+            <option value="50x30" selected>50 × 30 مم (الافتراضي الشائع للمذاخر والصيدليات)</option>
+            <option value="40x25">40 × 25 مم (ملصق صغير للعلب الصغيرة)</option>
+            <option value="38x25">38 × 25 مم</option>
+            <option value="60x40">60 × 40 مم (ملصق متوسط)</option>
+            <option value="70x40">70 × 40 مم</option>
+            <option value="76x50">76 × 50 مم</option>
+            <option value="100x50">100 × 50 مم (ملصق كراتين)</option>
+            <option value="custom">مقاس مخصص...</option>
+          </select>
+        </div>
+
+        <div class="form-row" style="margin:0;">
+          <label>عدد النسخ المطلوبة:</label>
+          <div style="display:flex;gap:4px;">
+            <input id="print-copies-input" type="number" min="1" max="9999" value="1" style="flex:1;" oninput="onPrintSettingChanged()">
+            <button type="button" class="btn btn-sec" style="font-size:10px;padding:4px 6px;" onclick="setBarcodeCopies(1)">1</button>
+            <button type="button" class="btn btn-sec" style="font-size:10px;padding:4px 6px;" onclick="setBarcodeCopies(5)">5</button>
+            <button type="button" class="btn btn-sec" style="font-size:10px;padding:4px 6px;" onclick="setBarcodeCopies(10)">10</button>
+            <button type="button" class="btn btn-sec" style="font-size:10px;padding:4px 6px;" onclick="setBarcodeCopies('stock')" title="بعدد رصيد المخزن">الرصيد</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Size Inputs (Shown if custom is selected) -->
+      <div id="custom-size-row" style="display:none;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;background:#f8fafc;padding:8px 10px;border-radius:10px;border:1px solid var(--ios-border);">
+        <div class="form-row" style="margin:0;">
+          <label>العرض بالمليمتر (مم):</label>
+          <input id="print-width-input" type="number" min="20" max="110" step="1" value="50" oninput="onCustomPrintSizeChanged()">
+        </div>
+        <div class="form-row" style="margin:0;">
+          <label>الارتفاع بالمليمتر (مم):</label>
+          <input id="print-height-input" type="number" min="10" max="200" step="1" value="30" oninput="onCustomPrintSizeChanged()">
+        </div>
+      </div>
+
+      <!-- Label Content Checkboxes -->
+      <div style="background:#f8fafc;border:1px solid var(--ios-border);border-radius:10px;padding:8px 12px;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:800;color:var(--ios-sub);margin-bottom:6px;">محتويات الملصق المطبوع:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="lbl-chk-warehouse" checked onchange="updateBarcodeLivePreview()"> اسم المستودع
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="lbl-chk-name" checked onchange="updateBarcodeLivePreview()"> اسم الدواء
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="lbl-chk-barcode" checked onchange="updateBarcodeLivePreview()"> خطوط الباركود
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="lbl-chk-num" checked onchange="updateBarcodeLivePreview()"> رقم الكود
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="lbl-chk-price" checked onchange="updateBarcodeLivePreview()"> السعر (د.ع)
+          </label>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="lbl-chk-expiry" checked onchange="updateBarcodeLivePreview()"> تاريخ النفاذ
+          </label>
+        </div>
+      </div>
+
+      <!-- Realistic Live Preview Canvas of Sticker -->
+      <div style="text-align:center;margin-bottom:4px;">
+        <span style="font-size:11px;font-weight:700;color:var(--ios-sub);">المعاينة الحية للملصق الحراري بمقاس (<span id="prev-size-lbl">50 × 30 مم</span>):</span>
+      </div>
+
+      <div class="barcode-sticker-canvas" id="barcode-sticker-canvas" style="width:260px;min-height:140px;">
+        <div id="prev-barcode-warehouse" style="font-size:10px;font-weight:800;color:#000;margin-bottom:2px;letter-spacing:-0.2px;">مستودع سامو للأدوية</div>
+        <div id="prev-barcode-name" style="font-size:12px;font-weight:bold;max-width:96%;overflow:hidden;white-space:nowrap;color:#000;">اسم الدواء</div>
+        <svg id="prev-barcode-svg" style="max-width:95%;height:46px;margin:2px 0;"></svg>
+        <div id="prev-barcode-num" style="font-family:monospace;font-size:11px;font-weight:bold;color:#000;letter-spacing:1px;">000000000</div>
+        <div style="display:flex;justify-content:space-between;width:95%;font-size:10px;font-weight:bold;margin-top:2px;color:#000;">
+          <span id="prev-barcode-price">0 د.ع</span>
+          <span id="prev-barcode-expiry" style="font-family:monospace;">EXP: --/--</span>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:#0369a1;background:#f0f9ff;border:1px solid #bae6fd;padding:6px 10px;border-radius:8px;margin-bottom:12px;text-align:center;">
+        💡 تم ضبط المعايرة للطباعة المباشرة على الفاصل الحقيقي للملصق (Gap Sensor) لضمان توقف الورقة بدقة دون إهدار.
+      </div>
+
+      <!-- Execution Buttons -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" style="flex:2;justify-content:center;padding:12px;font-size:15px;background:var(--ios-blue);box-shadow:0 4px 12px rgba(0,122,255,0.3);font-weight:800;" onclick="executeAdvancedBarcodePrint()">
+          🖨️ طباعة الملصق الآن (<span id="print-btn-copies-lbl">1</span> نسخة)
+        </button>
+        <button class="btn btn-sec" style="flex:1;justify-content:center;padding:12px;font-size:13px;" onclick="testPrinterCalibration()" title="طباعة ملصق تجريبي لمعايرة حساس الفواصل">
+          🧪 تجربة المعايرة
+        </button>
+        <button class="btn btn-sec" style="padding:12px 14px;font-size:13px;" onclick="printBarcodeBrowserFallback()">
+          🖨️ عبر Windows
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-send-order" class="modal-overlay">
+    <div class="modal-sheet">
+      <div class="sheet-head">
+        <div>
+          <div class="sheet-title">🛒 مراجعة السلة وتعديل الطلب</div>
+          <div style="font-size: 11px; color: var(--ios-sub); margin-top: 2px;">يمكنك تعديل الكميات أو حذف المواد قبل الإرسال</div>
+        </div>
+        <button class="btn btn-sec" onclick="closeSendModal()">إغلاق</button>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span style="font-size: 12px; font-weight: 700; color: var(--ios-sub);">قائمة المواد المختارة:</span>
+        <button type="button" class="btn btn-sec" style="font-size: 11px; padding: 2px 8px; color: var(--ios-red); border-color: #fecaca;" onclick="clearCartFromModal()">🗑️ تفريغ السلة</button>
+      </div>
+      <div id="checkout-summary" style="margin-bottom: 8px; max-height: 240px; overflow-y: auto;"></div>
+      <button type="button" class="btn btn-sec" style="width: 100%; justify-content: center; padding: 8px; font-size: 12px; margin-bottom: 12px; background: #f0f9ff; color: #0369a1; border: 1px dashed #bae6fd;" onclick="closeSendModal()">
+        ➕ إضافة مواد أخرى من المخزن
+      </button>
+      <div class="form-row" id="order-staff-picker-row" style="display: none;">
+        <label>👤 الموظف صاحب الطلبية:</label>
+        <select id="order-staff-select" onchange="onStaffSelected(this.value)">
+          <option value="">-- اختر اسمك --</option>
+        </select>
+      </div>
+      <div class="form-row" id="saved-pharmacy-picker-row" style="display: none;">
+        <label>اختيار صيدلية مسجلة مسبقاً:</label>
+        <select id="saved-ph-select" onchange="onSavedPharmacySelected()">
+          <option value="">-- أو اختر صيدلية محفوظة --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>اسم الصيدلية المستلمة:</label>
+        <input type="text" id="order-ph-name" placeholder="مثال: صيدلية الرافدين">
+      </div>
+      <div class="form-row">
+        <label>رقم هاتف الصيدلية:</label>
+        <input type="text" id="order-ph-phone" placeholder="07XXXXXXXXX">
+      </div>
+      <div style="display: flex; justify-content: space-between; font-weight: 800; padding: 10px 0; font-size: 16px;">
+        <span>المجموع الكلي:</span>
+        <span id="checkout-total-price" style="color: var(--ios-green);">0 د.ع</span>
+      </div>
+      <button class="btn" style="width: 100%; justify-content: center; padding: 12px; font-size: 15px;" onclick="confirmOrderSubmission()">إرسال الطلب للمستودع 🚀</button>
+    </div>
+  </div>
+
+  <!-- Admin PIN Authentication Modal -->
+  <div id="modal-admin-auth" class="modal-overlay">
+    <div class="modal-sheet" style="max-width: 420px; text-align: center;">
+      <div class="sheet-head">
+        <div class="sheet-title">🔐 دخول المذخر (لوحة صاحب العمل)</div>
+        <button class="btn btn-sec" onclick="closeAdminAuthModal()">إغلاق</button>
+      </div>
+      <div style="padding: 10px 4px 16px;">
+        <div style="width: 56px; height: 56px; background: #e0f2fe; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 26px;">
+          🏢
+        </div>
+        <div style="font-size: 14px; font-weight: 700; color: var(--ios-text); margin-bottom: 6px;">
+          الوصول إلى الواجهة الكاملة لصاحب المذخر
+        </div>
+        <div style="font-size: 12px; color: var(--ios-sub); margin-bottom: 16px;">
+          يرجى إدخال رمز الأمان لفتح صلاحيات صاحب المذخر والطلبيات الواردة ونقطة البيع والتقارير المالية.
+        </div>
+
+        <form id="admin-auth-form" onsubmit="event.preventDefault(); submitAdminAuth();">
+          <div class="form-row" style="text-align: right;">
+            <label style="font-weight: 700;">رمز أمان المذخر (PIN):</label>
+            <div style="position: relative;">
+              <input type="password" id="admin-pin-input" autocomplete="current-password" placeholder="أدخل رمز المذخر..." style="text-align: center; font-size: 20px; font-weight: 800; letter-spacing: 4px; padding: 12px; border-radius: 12px;">
+              <button type="button" onclick="toggleAdminPinVisibility()" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px;" title="إظهار/إخفاء الرمز">👁️</button>
+            </div>
+            <div id="admin-pin-error" style="color: var(--ios-red); font-size: 12px; font-weight: 700; margin-top: 6px; display: none;">رمز الأمان غير صحيح، يرجى إعادة المحاولة</div>
+            <div style="font-size: 11px; color: var(--ios-sub); margin-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+              <span>الرمز الافتراضي: <b>1234</b></span>
+              <button type="button" class="btn btn-sec" style="font-size: 10px; padding: 2px 8px;" onclick="document.getElementById('admin-pin-input').value='1234'; document.getElementById('admin-pin-input').focus();">استخدام 1234</button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 18px;">
+            <button type="submit" class="btn" style="flex: 1; justify-content: center; padding: 13px; font-size: 15px;">
+              دخول المذخر ✓
+            </button>
+            <button type="button" class="btn btn-sec" style="padding: 13px 18px;" onclick="closeAdminAuthModal()">
+              إلغاء
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Sent Order Modal (Before Approval) -->
+  <div id="modal-edit-sent-order" class="modal-overlay">
+    <div class="modal-sheet" style="max-width: 600px;">
+      <div class="sheet-head">
+        <div>
+          <div class="sheet-title" id="edit-sent-order-title">✏️ تعديل الطلبية قبل الاعتماد</div>
+          <div id="edit-sent-order-sub" style="font-size: 11px; color: var(--ios-sub); margin-top: 2px;"></div>
+        </div>
+        <button class="btn btn-sec" onclick="closeEditSentOrderModal()">إغلاق</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <div class="form-row" style="flex: 1; min-width: 200px;">
+          <label>اسم الصيدلية المستلمة:</label>
+          <input type="text" id="edit-sent-ph-name" placeholder="اسم الصيدلية">
+        </div>
+        <div class="form-row" style="flex: 1; min-width: 150px;">
+          <label>رقم الهاتف:</label>
+          <input type="text" id="edit-sent-ph-phone" placeholder="رقم الهاتف">
+        </div>
+      </div>
+
+      <div style="margin-top: 4px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: 800; font-size: 13px;">الأدوية في الطلبية (<span id="edit-sent-items-count">0</span>):</span>
+        <button type="button" class="btn btn-sec" style="font-size: 11px; padding: 4px 8px; background: #e0f2fe; color: #0369a1; border-color: #bae6fd;" onclick="toggleAddMedicineToSentOrderSection()">
+          ➕ إضافة مادة للطلب
+        </button>
+      </div>
+
+      <!-- Add extra medicine to sent order box -->
+      <div id="edit-sent-add-medicine-box" style="display: none; background: #f0f9ff; border: 1px dashed #7dd3fc; border-radius: 12px; padding: 10px; margin-bottom: 10px;">
+        <div style="font-size: 12px; font-weight: 700; color: #0369a1; margin-bottom: 6px;">اختيار مادة من المخزن لإضافتها إلى الطلبية:</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <select id="edit-sent-medicine-select" style="flex: 2; min-width: 200px; padding: 8px; border-radius: 8px; border: 1px solid #bae6fd; background: #fff; font-size: 12px;">
+            <option value="">-- اختر مادة من المخزن --</option>
+          </select>
+          <input type="number" id="edit-sent-medicine-qty" min="1" value="1" style="width: 70px; padding: 8px; text-align: center; border-radius: 8px; border: 1px solid #bae6fd; background: #fff; font-size: 12px;">
+          <button type="button" class="btn" style="padding: 8px 14px; font-size: 12px;" onclick="addSelectedMedicineToSentOrder()">+ إضافة</button>
+        </div>
+      </div>
+
+      <!-- Items List -->
+      <div id="edit-sent-items-box" style="max-height: 40vh; overflow-y: auto; border: 1px solid var(--ios-border); border-radius: 10px; padding: 6px 10px; margin-bottom: 12px;"></div>
+
+      <div style="display: flex; justify-content: space-between; font-weight: 800; padding: 8px 0; font-size: 15px; border-top: 1px solid var(--ios-border);">
+        <span>إجمالي مبلغ الطلبية:</span>
+        <span id="edit-sent-total-price" style="color: var(--ios-green); font-size: 17px;">0 د.ع</span>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+        <button class="btn" style="flex: 2; justify-content: center; padding: 12px; font-size: 14px; background: var(--ios-green);" onclick="saveSentOrderModifications()">
+          💾 حفظ التعديلات
+        </button>
+        <button class="btn btn-sec" style="flex: 1; justify-content: center; padding: 12px; font-size: 12px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a;" onclick="restoreSentOrderToCart()" title="إرجاع المواد إلى السلة للتعديل عليها مباشرة">
+          🛒 استرجاع للسلة
+        </button>
+        <button class="btn btn-sec" style="padding: 12px 14px; font-size: 13px;" onclick="closeEditSentOrderModal()">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-inspect-order" class="modal-overlay">
+    <div class="modal-sheet">
+      <button type="button" class="mobile-inspect-close" aria-label="إغلاق نافذة الطلبية" onclick="closeInspectModal()">×</button>
+      <div class="sheet-head">
+        <div class="sheet-title" id="inspect-modal-title">فحص وتعديل الطلبية</div>
+        <button class="btn btn-sec" onclick="closeInspectModal()">إغلاق</button>
+      </div>
+      <div id="inspect-order-items-box" style="max-height: 250px; overflow-y: auto; margin-bottom: 12px;"></div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn" style="flex: 1; justify-content: center; background: var(--ios-green); padding: 12px;" id="inspect-save-btn" onclick="approveAndSignOrder()">اعتماد وتجهيز ✓</button>
+        <button class="btn btn-sec" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding: 12px;" onclick="openEditFromInspect()">✏️ تعديل كامل للطلب</button>
+        <button class="btn btn-danger" style="padding: 12px;" id="inspect-delete-btn" onclick="rejectAndDiscardCurrentInspectingOrder()">🗑️ إلغاء وحذف الطلب</button>
+        <button class="btn btn-sec" style="padding: 12px;" onclick="closeInspectModal()">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Merge Orders -->
+  <div id="modal-merge-orders" class="modal-overlay">
+    <div class="modal-sheet" style="max-width: 620px;">
+      <button type="button" class="mobile-inspect-close" aria-label="إغلاق نافذة دمج الطلبيات" onclick="closeMergeModal()">×</button>
+      <div class="sheet-head">
+        <div>
+          <div class="sheet-title" style="color:var(--ios-blue);">⚡ دمج الطلبيات المعلقة بطلبية واحدة</div>
+          <div style="font-size: 11px; color: var(--ios-sub); margin-top: 2px;">يتم جمع المواد المتطابقة وجمع كمياتها بدقة قبل اعتماد التجهيز</div>
+        </div>
+        <button class="btn btn-sec" onclick="closeMergeModal()">إغلاق</button>
+      </div>
+
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px 12px; margin-bottom:12px; font-size:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span>الصيدلية: <b id="merge-modal-pharmacy" style="color:#15803d;">-</b></span>
+          <span>عدد الطلبيات المدمجة: <b id="merge-modal-count" style="color:#15803d;">0</b></span>
+        </div>
+        <div style="font-size:11px; color:#166534;" id="merge-modal-ord-numbers">أرقام الطلبات: -</div>
+      </div>
+
+      <div style="font-size:12px; font-weight:800; margin-bottom:6px;">قائمة المواد المدمجة بعد جمع الكميات:</div>
+      <div id="merge-modal-items-box" style="max-height: 280px; overflow-y: auto; border: 1px solid var(--ios-border); border-radius: 10px; padding: 6px 10px; margin-bottom: 12px;"></div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; font-weight:800; padding:10px 0; font-size:15px; border-top:1px solid var(--ios-border);">
+        <span>إجمالي المبلغ بعد الدمج:</span>
+        <span id="merge-modal-total-price" style="color:var(--ios-green); font-size:18px;">0 د.ع</span>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn" style="flex:2; justify-content:center; padding:12px; font-size:14px; background:#059669;" onclick="confirmExecuteOrderMerge()">
+          ✓ تأكيد دمج الطلبيات بطلبية واحدة
+        </button>
+        <button class="btn btn-sec" style="flex:1; justify-content:center; padding:12px; font-size:13px;" onclick="closeMergeModal()">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="floating-merge-bar" style="display:none; position:fixed; bottom:25px; left:50%; transform:translateX(-50%); background:#0f172a; color:#fff; padding:10px 18px; border-radius:30px; box-shadow:0 12px 35px rgba(0,0,0,0.4); z-index:2147483000; align-items:center; gap:10px; direction:rtl;">
+    <span style="font-size:13px; font-weight:700;">تم تحديد <b id="floating-merge-count" style="color:#38bdf8;">0</b> طلبيات</span>
+    <button class="btn" style="background:#10b981; color:#fff; padding:7px 14px; font-size:12px; font-weight:800; border-radius:20px;" onclick="openMergeModalForSelected()">⚡ دمج بطلبية واحدة</button>
+    <button class="btn btn-sec" style="background:transparent; color:#94a3b8; border:none; padding:7px 10px; font-size:12px; cursor:pointer;" onclick="clearSelectedOrdersToMerge()">إلغاء التحديد</button>
+  </div>
+
+  <!-- In-app Confirmation Modal (Reliable across all browsers and iframes) -->
+  <div id="modal-confirm-delete" class="modal-overlay">
+    <div class="modal-sheet" style="max-width: 420px; text-align: center; border-radius: 20px;">
+      <div style="width: 58px; height: 58px; border-radius: 50%; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 6px auto 14px;" id="confirm-delete-icon">
+        🗑️
+      </div>
+      <div style="font-size: 17px; font-weight: 800; color: var(--ios-text); margin-bottom: 8px;" id="confirm-delete-title">تأكيد إلغاء وحذف الطلبية</div>
+      <div style="font-size: 13px; color: var(--ios-sub); line-height: 1.6; margin-bottom: 20px; padding: 0 10px;" id="confirm-delete-msg">هل أنت متأكد من إلغاء وحذف هذه الطلبية نهائياً من النظام؟</div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn btn-danger" style="flex: 1; justify-content: center; padding: 13px; font-size: 14px; font-weight: 800;" id="confirm-delete-action-btn">
+          نعم، تأكيد الحذف
+        </button>
+        <button type="button" class="btn btn-sec" style="padding: 13px 20px; font-size: 14px;" onclick="closeConfirmDeleteModal()">
+          تراجع
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-edit-item" class="modal-overlay">
+    <div class="modal-sheet">
+      <div class="sheet-head">
+        <div class="sheet-title">تعديل بيانات المادة الدوائية والشركة</div>
+        <button class="btn btn-sec" onclick="closeEditModal()">إغلاق</button>
+      </div>
+      <input type="hidden" id="edit-prod-id">
+      <div class="form-row">
+        <label>اسم المادة:</label>
+        <input type="text" id="edit-name">
+      </div>
+      <div class="form-row">
+        <label>صورة المنتج (رابط أو التقاط بالكاميرا):</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="edit-image" placeholder="https://... أو التقاط">
+          <button class="btn btn-sec" style="background:#e0f2fe; color:#0369a1; white-space:nowrap;" onclick="openCameraForImage('edit-image')">📷 التقاط</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>الشركة / المنشأ:</label>
+        <input type="text" id="edit-company" placeholder="اسم الشركة المصنعة...">
+      </div>
+      <div class="form-row">
+        <label>الشكل الدوائي:</label>
+        <input type="text" id="edit-form" placeholder="Tablet, Syrup...">
+      </div>
+      <div class="form-row">
+        <label>الباركود:</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="edit-barcode" placeholder="امسح أو ولّد كوداً">
+          <button class="btn btn-sec" onclick="generateBarcodeField('edit-barcode')">توليد</button>
+          <button class="btn btn-sec" style="background:#e0f2fe; color:#0369a1;" onclick="printBarcodeDirectFromEdit()">🖨️ طباعة</button>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <div class="form-row" style="flex:1;">
+          <label>الكمية:</label>
+          <input type="number" id="edit-qty">
+        </div>
+        <div class="form-row" style="flex:1;">
+          <label>الحد الأدنى:</label>
+          <input type="number" id="edit-min-qty">
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <div class="form-row" style="flex:1;">
+          <label>سعر المفرد:</label>
+          <input type="number" id="edit-price">
+        </div>
+        <div class="form-row" style="flex:1;">
+          <label>البونص (%):</label>
+          <input type="number" id="edit-bonus">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>تاريخ الصلاحية (YYYY-MM):</label>
+        <input type="text" id="edit-exp">
+      </div>
+      <button class="btn" style="width: 100%; justify-content: center; padding: 11px; margin-top: 6px;" onclick="saveEditedMedicine()">حفظ التعديلات في قاعدة البيانات</button>
+    </div>
+  </div>
+
+  <div id="modal-add-item" class="modal-overlay">
+    <div class="modal-sheet">
+      <div class="sheet-head">
+        <div class="sheet-title">إضافة مادة دوائية جديدة للمخزن</div>
+        <button class="btn btn-sec" onclick="closeAddModal()">إغلاق</button>
+      </div>
+      <div class="form-row">
+        <label>اسم المادة:</label>
+        <input type="text" id="in-name" placeholder="مثال: Paracetamol 120mg Syrup">
+      </div>
+      <div class="form-row">
+        <label>صورة المنتج (رابط أو التقاط بالكاميرا):</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="in-image" placeholder="https://... أو التقاط">
+          <button type="button" class="btn btn-sec" style="background:#e0f2fe; color:#0369a1; white-space:nowrap;" onclick="openAiMedicineCamera('add')">📷✨ قراءة بالذكاء الاصطناعي</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>الشركة / المنشأ:</label>
+        <input type="text" id="in-company" placeholder="اسم الشركة المصنعة...">
+      </div>
+      <div id="ai-medicine-extra-info" style="display:none; margin:-2px 0 8px; padding:8px 10px; border:1px solid #bfdbfe; background:#eff6ff; border-radius:9px; font-size:11px; line-height:1.7; color:#1e3a8a;"></div>
+      <div class="form-row">
+        <label>التصنيف / الشكل الدوائي:</label>
+        <select id="in-form">
+          <option value="Tablet">Tablet (حبوب)</option>
+          <option value="Capsule">Capsule (كبسول)</option>
+          <option value="Syrup">Syrup (شراب)</option>
+          <option value="Suspension">Suspension (معلق)</option>
+          <option value="Injection">Injection (حقن)</option>
+          <option value="Vial">Vial (فيال)</option>
+          <option value="Ampoule">Ampoule (أمبول)</option>
+          <option value="Cream">Cream (كريم)</option>
+          <option value="Ointment">Ointment (مرهم)</option>
+          <option value="Sachet">Sachet (ساشيت)</option>
+          <option value="Gel">Gel (جل)</option>
+          <option value="Drops">Drops (قطرات)</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <div class="form-row" style="flex:1;">
+          <label>العدد:</label>
+          <input type="number" id="in-qty" value="10">
+        </div>
+        <div class="form-row" style="flex:1;">
+          <label>الحد الأدنى:</label>
+          <input type="number" id="in-min-qty" value="5">
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <div class="form-row" style="flex:1;">
+          <label>سعر المفرد:</label>
+          <input type="number" id="in-price" value="5000" oninput="calcBonusNet()">
+        </div>
+        <div class="form-row" style="flex:1;">
+          <label>البونص (%):</label>
+          <input type="number" id="in-bonus" value="0" oninput="calcBonusNet()">
+        </div>
+      </div>
+      <div id="bonus-hint" style="font-size: 11px; color: var(--ios-green); font-weight: 700; margin-bottom: 8px;">السعر الفعلي: 5,000 د.ع</div>
+      <div class="form-row">
+        <label>تاريخ الصلاحية (YYYY-MM):</label>
+        <input type="text" id="in-exp" placeholder="2027-12">
+      </div>
+      <div class="form-row">
+        <label>الباركود:</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="in-barcode" placeholder="امسح أو ولّد كوداً">
+          <button class="btn btn-sec" onclick="generateBarcodeField('in-barcode')">توليد باركود</button>
+          <button class="btn btn-sec" style="background:#e0f2fe; color:#0369a1;" onclick="printBarcodeDirectFromAdd()">🖨️ طباعة</button>
+        </div>
+      </div>
+      <button type="button" class="btn" style="width: 100%; justify-content: center; padding: 11px; margin-top: 6px;" onclick="saveNewMedicine()">حفظ وإضافة المادة لقاعدة البيانات</button>
+    </div>
+  </div>
+
+  <div id="invoice-a4-sheet" style="padding: 25px; font-family: Tahoma, Arial, sans-serif; direction: rtl;">
+    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+      <h1 style="font-size: 20px; font-weight: bold; margin-bottom: 4px;">مستودع سامو للأدوية والمستلزمات الطبية</h1>
+      <h3 style="font-size: 15px; margin-bottom: 6px;">قائمة تجهيز وصادر معتمدة</h3>
+      <div id="inv-meta-info" style="display: flex; justify-content: space-between; font-size: 11px; font-weight: bold; border: 1px solid #000; padding: 6px; border-radius: 4px; background: #f9f9f9;"></div>
+    </div>
+    <table style="width: 100%; border-collapse: collapse; border: 1px solid #000; text-align: right; font-size: 12px; margin-bottom: 15px;">
+      <thead>
+        <tr style="background: #e5e5e5;">
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 35px;">ت</th>
+          <th style="border: 1px solid #000; padding: 6px;">اسم الدواء / المادة</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center;">الشكل</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center;">الصلاحية</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 50px;">العدد</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: left;">سعر المفرد</th>
+          <th style="border: 1px solid #000; padding: 6px; text-align: left;">الإجمالي</th>
+        </tr>
+      </thead>
+      <tbody id="inv-table-rows"></tbody>
+    </table>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 15px;">
+      <div style="font-size: 13px; font-weight: bold; border: 1.5px solid #000; padding: 8px; border-radius: 6px; background: #fafafa;" id="inv-total-box"></div>
+      <div style="text-align: center; font-size: 12px; font-weight: bold; margin-left: 20px;">
+        <p id="inv-staff-sign">توقيع الموظف المجهز: ..........................</p>
+        <p style="margin-top: 25px;">توقيع وختم أمين المستودع</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/src/app.js"></script>
+</body>
+</html>
