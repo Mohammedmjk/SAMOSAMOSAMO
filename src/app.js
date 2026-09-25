@@ -4798,38 +4798,7 @@ function openEditFromInspect() {
  * Safely approves an order, deducts stock from Supabase "samo" table (using column "number"),
  * updates status to "تم التجهيز", stores approver name, and records inventory_logs.
  */
-async function handleApproveOrder(currentOrderId, orderItems = [], orderDetails = {}) {
-  // 1. Auto-assign approver name from current logged-in user
-  const approverName = (typeof currentUser !== 'undefined' && (currentUser?.name || currentUser?.email)) ||
-                       currentStaff ||
-                       localStorage.getItem('samo_current_staff') ||
-                       'صاحب المذخر';
-
-  console.log(`⚡ [handleApproveOrder] بدء اعتماد الطلبية (${currentOrderId}) بواسطة: "${approverName}"`);
-
-  try {
-    const supabase = getSupabaseClient();
-
-    // 2. Deduct stock in Supabase "samo" table using column "number"
-    if (supabase && Array.isArray(orderItems) && orderItems.length > 0) {
-      for (const item of orderItems) {
-        try {
-          const targetId = item.product_id || item.id;
-          let prodRow = null;
-
-          if (targetId) {
-            const { data, error: fetchErr } = await supabase
-              .from('samo')
-              .select('id, number')
-              .eq('id', targetId)
-              .maybeSingle();
-
-            if (fetchErr) {
-              console.error(`[handleApproveOrder] خطأ جلب رصيد المادة (ID: ${targetId}):`, fetchErr.message);
-            } else {
-              prodRow = data;
-            }
-          }
+handleApproveOrder
 
           if (!prodRow && item.barcode) {
             const { data } = await supabase
