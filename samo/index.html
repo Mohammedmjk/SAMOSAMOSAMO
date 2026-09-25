@@ -55,17 +55,6 @@
     window.deleteStaffFromSettings = window.deleteStaffFromSettings || function() {};
     window.triggerSync = window.triggerSync || function() {};
     window.triggerAdmin = window.triggerAdmin || function() {};
-    window.triggerFetchMedicinesFromDatabase = window.triggerFetchMedicinesFromDatabase || function() {
-      if (typeof loadSamoMedicinesDirectly === 'function') {
-        return loadSamoMedicinesDirectly(true);
-      } else if (typeof fetchSamoProductsDirectly === 'function') {
-        return fetchSamoProductsDirectly(true);
-      } else if (typeof loadAllProducts === 'function') {
-        return loadAllProducts();
-      } else if (typeof loadRemoteData === 'function') {
-        return loadRemoteData();
-      }
-    };
   </script>
   <style>
     :root {
@@ -1832,26 +1821,6 @@
       z-index: 2147483001 !important; 
       margin: auto; 
     }
-
-    /* Modal stacking: Return Order Dialog stays below top confirmation */
-    #modal-return-order {
-      z-index: 2147482000 !important;
-    }
-    #modal-return-order .modal-sheet {
-      z-index: 2147482001 !important;
-    }
-
-    /* Confirmation Modal: Top-most z-index in the entire viewport (Always stacks over other dialogs) */
-    #modal-confirm-delete,
-    #modal-confirm-return,
-    .confirm-dialog-top {
-      z-index: 2147483647 !important;
-    }
-    #modal-confirm-delete .modal-sheet,
-    #modal-confirm-return .modal-sheet,
-    .confirm-dialog-top .modal-sheet {
-      z-index: 2147483647 !important;
-    }
     .modal-sheet {
       background: #ffffff;
       width: 100%;
@@ -3280,11 +3249,8 @@
     <!-- Medicines Dedicated Container Frame -->
     <div class="medicines-deck-frame" id="medicines-deck-frame">
       <div class="medicines-frame-header">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:6px;">
           <span>📦 قائمة الأدوية والمواد بالمخزن</span>
-          <button type="button" id="refresh-medicines-btn" class="btn" style="background:#0284c7;color:#ffffff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:8px;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="triggerFetchMedicinesFromDatabase()" title="جلب وتحديث قائمة الأدوية من قاعدة البيانات فوراً">
-            🔄 جلب الأدوية من قاعدة البيانات
-          </button>
           <button type="button" id="add-prod-btn" class="btn" style="display: none; background: var(--ios-green); font-size:11.5px; font-weight:800; padding:3px 10px; border-radius:10px; line-height:1.2;" onclick="openAddModal()">+ مادة جديدة</button>
         </div>
         <span id="medicines-count-pill" class="medicines-count-pill">0 مادة</span>
@@ -3395,20 +3361,14 @@
         <div class="pos-cart-meta-box">
           <div class="pos-form-row">
             <label style="display:flex; justify-content:space-between; align-items:center;">
-              <span>🏥 اختيار الصيدلية / العميل:</span>
-              <div style="display:flex; gap:8px;">
-                <span style="font-size:11px; color:#0284c7; cursor:pointer; font-weight:800;" onclick="openAddPharmacyModal()">➕ إضافة صيدلية جديدة</span>
-                <span style="font-size:10.5px; color:#64748b; cursor:pointer; font-weight:700;" onclick="togglePosPharmacyCustomMode()">✍️ إدخال يدوي</span>
-              </div>
+              <span>🏥 اختيار الصيدلية المستلمة:</span>
+              <span style="font-size:10.5px; color:#0284c7; cursor:pointer; font-weight:800;" onclick="togglePosPharmacyCustomMode()">✍️ إدخال صيدلية غير مسجلة</span>
             </label>
             <select id="pos-ph-select" onchange="onPosPharmacyDropdownChanged(this.value)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid #bfdbfe; font-size:12.5px; font-weight:700; background:#fff; color:#0f172a;">
-              <option value="">-- اختر الصيدلية / العميل --</option>
+              <option value="">-- اختر الصيدلية المستلمة --</option>
             </select>
             <div id="pos-ph-custom-input-wrap" style="display:none; margin-top:6px;">
-              <div style="display:flex; gap:6px;">
-                <input type="text" id="pos-ph-name" placeholder="اكتب اسم الصيدلية أو العميل..." list="pos-pharmacies-datalist" autocomplete="off" oninput="onPosPharmacySelected(this.value)" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--ios-border); font-size:12px; background:#f8fafc;">
-                <button type="button" class="btn btn-sec" style="font-size:11px; padding:4px 8px; white-space:nowrap; color:#0284c7; border-color:#93c5fd;" onclick="quickSaveCustomerFromPos()" title="حفظ الصيدلية في قاعدة البيانات المعتمدة">💾 حفظ في قاعدة البيانات</button>
-              </div>
+              <input type="text" id="pos-ph-name" placeholder="اكتب اسم الصيدلية أو العميل..." list="pos-pharmacies-datalist" autocomplete="off" oninput="onPosPharmacySelected(this.value)" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--ios-border); font-size:12px; background:#f8fafc;">
               <datalist id="pos-pharmacies-datalist"></datalist>
             </div>
           </div>
@@ -3628,7 +3588,7 @@
 
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
         <button class="btn" style="background:#16a34a; font-size:12px; font-weight:800;" onclick="triggerSupabaseSyncNow()">
-          🔄 جلب وتحديث الأدوية من قاعدة البيانات فوراً
+          🔄 جلب وتحديث 887 مادة من Supabase فوراً
         </button>
         <button class="btn btn-sec" style="font-size:12px; font-weight:700; background:#fff; color:#166534; border-color:#86efac;" onclick="checkSupabaseHealth()">
           📊 فحص صحة بيانات Supabase
@@ -4237,7 +4197,7 @@
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button type="button" class="btn" style="background:#16a34a; font-size:12px; font-weight:700; padding:8px 14px;" onclick="triggerSupabaseSyncNow()">
-                🔄 جلب وتحديث الأدوية من قاعدة البيانات (Supabase)
+                🔄 جلب وتحديث 887 مادة من Supabase
               </button>
               <button type="button" class="btn btn-sec" style="background:#fff; color:#166534; border-color:#86efac; font-size:12px; font-weight:700; padding:8px 14px;" onclick="checkSupabaseHealth()">
                 ⚡ فحص اتصال Supabase
@@ -4463,20 +4423,17 @@
       <div id="order-ph-select-container">
         <div class="form-row" style="margin-bottom: 10px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label style="font-weight: 800; font-size: 13px; color: var(--ios-blue);">🏥 اختيار الصيدلية / العميل:</label>
-            <div style="display:flex; gap:6px;">
-              <button type="button" class="btn btn-sec" style="font-size: 10.5px; padding: 2px 7px; color: var(--ios-green); border-color: #86efac;" onclick="openAddPharmacyModal()">➕ إضافة جديدة</button>
-              <button type="button" class="btn btn-sec" style="font-size: 10.5px; padding: 2px 7px; color: var(--ios-blue); border-color: #93c5fd;" onclick="openSettingsTabFromModal()">⚙️ إدارة الصيدليات</button>
-            </div>
+            <label style="font-weight: 800; font-size: 13px; color: var(--ios-blue);">🏥 اختيار الصيدلية المستلمة (حصراً من القائمة):</label>
+            <button type="button" class="btn btn-sec" style="font-size: 10.5px; padding: 2px 7px; color: var(--ios-blue); border-color: #93c5fd;" onclick="openSettingsTabFromModal()">⚙️ إدارة الصيدليات</button>
           </div>
           <div style="position: relative; margin-bottom: 5px;">
             <input type="text" id="order-ph-filter-input" placeholder="🔍 فلترة سريعة بالاسم أو الهاتف..." oninput="filterOrderPharmacyDropdown(this.value)" style="padding: 7px 10px; font-size: 12.5px; border-radius: 8px; border: 1px solid var(--ios-border); background: #f8fafc; width: 100%;">
           </div>
           <select id="order-approved-ph-select" onchange="onApprovedPharmacySelected(this.value)" style="font-weight: 800; font-size: 13.5px; padding: 10px; border-radius: 10px; border: 1.5px solid var(--ios-blue); background: #fff; width: 100%;">
-            <option value="">-- اختر الصيدلية / العميل --</option>
+            <option value="">-- اختر الصيدلية من القائمة المعتمدة --</option>
           </select>
           <div id="order-ph-validation-msg" style="display:none; color: var(--ios-red); font-size: 11px; margin-top: 4px; font-weight: 700;">
-            ⚠️ يرجى اختيار اسم الصيدلية / العميل من القائمة أعلاه لإرسال الطلبية.
+            ⚠️ يرجى اختيار اسم الصيدلية من القائمة المعتمدة أعلاه لإرسال الطلبية.
           </div>
         </div>
 
@@ -4499,7 +4456,7 @@
         <span>المجموع الكلي:</span>
         <span id="checkout-total-price" style="color: var(--ios-green);">0 د.ع</span>
       </div>
-      <button type="button" id="btn-confirm-send-order" class="btn" style="width: 100%; justify-content: center; padding: 12px; font-size: 15px; font-weight: 800;" onclick="handleCreateOrder(event)">إرسال الطلب للمستودع 🚀</button>
+      <button type="button" id="btn-confirm-send-order" class="btn" style="width: 100%; justify-content: center; padding: 12px; font-size: 15px; font-weight: 800;" onclick="confirmOrderSubmission(event)">إرسال الطلب للمستودع 🚀</button>
     </div>
   </div>
 
@@ -4755,6 +4712,24 @@
     <button class="btn btn-sec" style="background:transparent; color:#94a3b8; border:none; padding:7px 10px; font-size:12px; cursor:pointer;" onclick="clearSelectedOrdersToMerge()">إلغاء التحديد</button>
   </div>
 
+  <!-- In-app Confirmation Modal (Reliable across all browsers and iframes) -->
+  <div id="modal-confirm-delete" class="modal-overlay">
+    <div class="modal-sheet" style="max-width: 420px; text-align: center; border-radius: 20px;">
+      <div style="width: 58px; height: 58px; border-radius: 50%; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 6px auto 14px;" id="confirm-delete-icon">
+        🗑️
+      </div>
+      <div style="font-size: 17px; font-weight: 800; color: var(--ios-text); margin-bottom: 8px;" id="confirm-delete-title">تأكيد إلغاء وحذف الطلبية</div>
+      <div style="font-size: 13px; color: var(--ios-sub); line-height: 1.6; margin-bottom: 20px; padding: 0 10px;" id="confirm-delete-msg">هل أنت متأكد من إلغاء وحذف هذه الطلبية نهائياً من النظام؟</div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn btn-danger" style="flex: 1; justify-content: center; padding: 13px; font-size: 14px; font-weight: 800;" id="confirm-delete-action-btn">
+          نعم، تأكيد الحذف
+        </button>
+        <button type="button" class="btn btn-sec" style="padding: 13px 20px; font-size: 14px;" onclick="closeConfirmDeleteModal()">
+          تراجع
+        </button>
+      </div>
+    </div>
+  </div>
 
   <div id="modal-edit-item" class="modal-overlay">
     <div class="modal-sheet">
@@ -5299,15 +5274,14 @@
 
   <!-- Google Auth & Staff Account Modal -->
   <div id="google-auth-modal" class="modal-backdrop" style="display: none; align-items: center; justify-content: center; z-index: 99999; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(8px);">
-    <div class="modal-content" style="max-width: 450px; width: 92%; border-radius: 20px; padding: 26px 22px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.25); background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.8); position: relative;">
-      <button type="button" onclick="closeGoogleAuthModal()" style="position: absolute; top: 12px; left: 12px; width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; border: none; font-size: 16px; font-weight: 800; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="إغلاق">✕</button>
+    <div class="modal-content" style="max-width: 450px; width: 92%; border-radius: 20px; padding: 26px 22px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.25); background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.8);">
       <div style="width: 58px; height: 58px; margin: 0 auto 14px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.04);">
         <svg width="32" height="32" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
       </div>
 
-      <div style="font-size: 17px; font-weight: 900; color: #0f172a; margin-bottom: 4px;">تسجيل الدخول لمستودع سامو</div>
+      <div style="font-size: 17px; font-weight: 900; color: #0f172a; margin-bottom: 4px;">🔒 تسجيل الدخول إجباري لمستودع سامو</div>
       <div style="font-size: 12.5px; color: #64748b; margin-bottom: 14px; line-height: 1.6;">
-        يمكنك تسجيل الدخول بحساب <b>Google</b> لتوثيق وحفظ فواتيرك باسمك ومزامنتها بالسحابة.
+        عذراً، يمنع استخدام البرنامج بدون تسجيل الدخول. يرجى الدخول بحساب <b>Google</b> لتوثيق فواتيرك وحفظ بياناتك.
       </div>
 
       <!-- Auth Error / Warning Box -->
@@ -5340,8 +5314,7 @@
       </div>
 
       <div style="display: flex; gap: 8px; justify-content: stretch; margin-top: 16px;">
-        <button class="btn" onclick="saveManualGoogleEmail()" style="flex: 1; background: var(--ios-blue); color: #fff; padding: 11px 16px; font-size: 14px; font-weight: 800; border-radius: 12px; justify-content: center;">تأكيد ودخول ✓</button>
-        <button class="btn btn-sec" onclick="closeGoogleAuthModal()" style="padding: 11px 16px; font-size: 13px; font-weight: 700; border-radius: 12px; justify-content: center;">تخطي ✕</button>
+        <button class="btn" onclick="saveManualGoogleEmail()" style="width: 100%; background: var(--ios-blue); color: #fff; padding: 11px 20px; font-size: 14px; font-weight: 800; border-radius: 12px; justify-content: center;">تأكيد ودخول ✓</button>
       </div>
 
       <div id="auth-signout-btn-wrap" style="margin-top: 14px; display: none;">
@@ -5378,44 +5351,7 @@
     </div>
   </div>
 
-  <!-- In-app Confirmation Modal (Reliable across all browsers and iframes, always top stacking) -->
-  <div id="modal-confirm-delete" class="modal-overlay confirm-dialog-top" style="z-index: 2147483647 !important;">
-    <div class="modal-sheet" style="max-width: 420px; text-align: center; border-radius: 20px; z-index: 2147483647 !important;">
-      <div style="width: 58px; height: 58px; border-radius: 50%; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 6px auto 14px;" id="confirm-delete-icon">
-        🗑️
-      </div>
-      <div style="font-size: 17px; font-weight: 800; color: var(--ios-text); margin-bottom: 8px;" id="confirm-delete-title">تأكيد إلغاء وحذف الطلبية</div>
-      <div style="font-size: 13px; color: var(--ios-sub); line-height: 1.6; margin-bottom: 20px; padding: 0 10px;" id="confirm-delete-msg">هل أنت متأكد من إلغاء وحذف هذه الطلبية نهائياً من النظام؟</div>
-      <div style="display: flex; gap: 8px;">
-        <button type="button" class="btn btn-danger" style="flex: 1; justify-content: center; padding: 13px; font-size: 14px; font-weight: 800;" id="confirm-delete-action-btn">
-          نعم، تأكيد الحذف
-        </button>
-        <button type="button" class="btn btn-sec" style="padding: 13px 20px; font-size: 14px;" onclick="closeConfirmDeleteModal()">
-          تراجع
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Dedicated Modal: Return Item Confirmation (Always opens ON TOP of Return Order Modal) -->
-  <div id="modal-confirm-return" class="modal-overlay confirm-dialog-top" style="z-index: 2147483647 !important; background: rgba(0,0,0,0.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
-    <div class="modal-sheet" style="max-width: 440px; text-align: center; border-radius: 20px; z-index: 2147483647 !important; border: 2px solid #fecaca; box-shadow: 0 25px 60px rgba(0,0,0,0.5);">
-      <div style="width: 58px; height: 58px; border-radius: 50%; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 4px auto 14px; border: 1.5px solid #fca5a5;">
-        ↩️
-      </div>
-      <div style="font-size: 17px; font-weight: 900; color: var(--ios-text); margin-bottom: 8px;">تأكيد إرجاع المادة للمخزن</div>
-      <div id="confirm-return-msg" style="font-size: 13.5px; color: var(--ios-sub); line-height: 1.6; margin-bottom: 20px; padding: 0 10px;"></div>
-      <div style="display: flex; gap: 8px;">
-        <button type="button" class="btn btn-danger" style="flex: 1; justify-content: center; padding: 13px; font-size: 14px; font-weight: 800; background: #dc2626;" id="confirm-return-action-btn">
-          نعم، إرجاع للمخزن ✓
-        </button>
-        <button type="button" class="btn btn-sec" style="padding: 13px 20px; font-size: 14px;" onclick="closeConfirmReturnModal()">
-          تراجع ✕
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <script src="/src/app.js?v=999"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/src/app.js"></script>
 </body>
 </html>

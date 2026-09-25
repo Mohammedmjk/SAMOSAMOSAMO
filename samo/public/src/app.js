@@ -6,7 +6,7 @@
 const API_URL = "/api";
 
 const DEFAULT_SUPABASE_URL = 'https://boaopqyzhvyzdclmoycr.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_5Tg1o4MnUSseRc1bw78Erg_wIQNF42I';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvYW9wcXl6aHZ5emRjbG1veWNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4MzM3NTEsImV4cCI6MjEwNTQwOTc1MX0.gGK13rvlXjqhBnyQ4b_GAkb2MYJXOTdWXOxwyykAwjY';
 
 let clientSupabaseInstance = null;
 
@@ -62,12 +62,8 @@ function supabaseOrderToAppOrder(row) {
   const orderNum = row.order_number || row.orderNumber || (row.id ? `ORD-SB-${row.id}` : `ORD-${Date.now()}`);
   const phName = row.customer_name || row.customerName || row.pharmacy_name || row.pharmacyName || 'عميل / صيدلية';
   const total = Number(row.total_amount ?? row.totalAmount ?? row.total_price ?? 0);
-  const status = String(row.status || '').trim();
-  const displayStatus = (status === 'قيد المراجعة')
-    ? 'قيد المراجعة'
-    : (['completed', 'معتمد', 'delivered', 'تم التجهيز', 'تم التسليم', 'approved', 'مستلم', 'مسلّم', 'مسلمة'].includes(status.toLowerCase()) || isApprovedOrder({ status }))
-      ? 'معتمد'
-      : status;
+  const status = String(row.status || 'pending').trim();
+  const displayStatus = (status === 'pending' || status === 'قيد المراجعة') ? 'قيد المراجعة' : (status === 'completed' || status === 'معتمد' || status === 'delivered') ? 'معتمد' : status;
 
   return {
     id: String(row.id || orderNum),
@@ -245,43 +241,6 @@ window.normalizeSupabaseReport = normalizeSupabaseReport;
 window.fetchReportsFromSupabaseDirect = fetchReportsFromSupabaseDirect;
 
 /**
- * Safe date parsing helpers to prevent invalid timestamps or unrecognized timezone formats
- */
-function safeIsoDate(val, fallback = new Date().toISOString()) {
-  if (!val) return fallback;
-  if (val instanceof Date && !isNaN(val.getTime())) {
-    return val.toISOString();
-  }
-  const str = String(val).trim();
-  if (!str) return fallback;
-  const withoutParens = str.replace(/\([^)]*\)/g, '').trim();
-  const d1 = new Date(withoutParens);
-  if (!isNaN(d1.getTime())) return d1.toISOString();
-  const d2 = new Date(str);
-  if (!isNaN(d2.getTime())) return d2.toISOString();
-  const m = str.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (m) {
-    return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}T00:00:00.000Z`;
-  }
-  return fallback;
-}
-
-function safeDateOnly(val, fallback = new Date().toISOString().slice(0, 10)) {
-  if (!val) return fallback;
-  const str = String(val).trim();
-  if (!str) return fallback;
-  const m = str.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (m) {
-    return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
-  }
-  const iso = safeIsoDate(str, '');
-  if (iso && /^\d{4}-\d{2}-\d{2}/.test(iso)) {
-    return iso.slice(0, 10);
-  }
-  return fallback;
-}
-
-/**
  * Generates initial snapshot reports from orders when reports table in Supabase is empty
  */
 function generateInitialReportsSnapshot() {
@@ -290,7 +249,11 @@ function generateInitialReportsSnapshot() {
 
   if (Array.isArray(orders) && orders.length > 0) {
     orders.forEach(o => {
-      let d = safeDateOnly(o.date || o.createdAt, todayStr);
+      let d = todayStr;
+      if (o.date) {
+        const match = String(o.date).match(/\d{4}-\d{2}-\d{2}/);
+        if (match) d = match[0];
+      }
       if (!reportsByDate.has(d)) {
         reportsByDate.set(d, {
           report_date: d,
@@ -299,7 +262,7 @@ function generateInitialReportsSnapshot() {
           pharmacies: new Set(),
           items_count: 0,
           generated_by: o.staffEmail || currentStaffEmail || 'admin@samo.iq',
-          created_at: safeIsoDate(o.createdAt || o.date)
+          created_at: o.createdAt || new Date().toISOString()
         });
       }
       const rep = reportsByDate.get(d);
@@ -334,7 +297,7 @@ function generateInitialReportsSnapshot() {
 
   return Array.from(reportsByDate.values()).map(r => ({
     report_type: 'مبيعات يومية',
-    report_date: safeDateOnly(r.report_date || r.created_at, todayStr),
+    report_date: r.report_date,
     summary: JSON.stringify({
       ordersCount: r.orders_count,
       pharmaciesCount: r.pharmacies.size,
@@ -344,7 +307,7 @@ function generateInitialReportsSnapshot() {
     }),
     total_sales: r.total_sales,
     generated_by: r.generated_by || 'admin@samo.iq',
-    created_at: safeIsoDate(r.created_at)
+    created_at: r.created_at
   }));
 }
 
@@ -369,7 +332,7 @@ async function checkAndMigrateStaffAndReports(interactive = false) {
         name: typeof name === 'object' ? name.name : String(name).trim(),
         role: typeof name === 'object' ? (name.role || 'مندوب مبيعات') : 'مندوب مبيعات',
         email: typeof name === 'object' ? (name.email || '') : '',
-        created_at: safeIsoDate(typeof name === 'object' && name.created_at ? name.created_at : new Date().toISOString())
+        created_at: new Date().toISOString()
       }));
 
     // 2. Prepare current local reports payload
@@ -378,20 +341,15 @@ async function checkAndMigrateStaffAndReports(interactive = false) {
     if (sb) {
       // Check staff table in Supabase
       try {
-        const staffChecked = sessionStorage.getItem('samo_staff_rls_checked');
-        if (!staffChecked) {
-          const { data: sData, error: sErr } = await sb.from('staff').select('*');
-          if (!sErr && (!sData || sData.length === 0)) {
-            staffNeedsUpload = true;
-            const { error: insErr } = await sb.from('staff').insert(currentStaffList);
-            if (insErr) {
-              sessionStorage.setItem('samo_staff_rls_checked', 'true');
-              console.info('Supabase staff table has RLS policy active; staff members are securely preserved locally.');
-            } else {
-              console.log('Successfully migrated staff list to Supabase staff table.');
-            }
+        const { data: sData, error: sErr } = await sb.from('staff').select('*');
+        if (!sErr && (!sData || sData.length === 0)) {
+          staffNeedsUpload = true;
+          console.log('Supabase staff table is empty. Initiating bulk migration...');
+          const { error: insErr } = await sb.from('staff').insert(currentStaffList);
+          if (insErr) {
+            console.warn('Direct client staff insert note:', insErr.message);
           } else {
-            sessionStorage.setItem('samo_staff_rls_checked', 'true');
+            console.log('Successfully migrated staff list to Supabase staff table.');
           }
         }
       } catch (chkErr) {
@@ -400,20 +358,15 @@ async function checkAndMigrateStaffAndReports(interactive = false) {
 
       // Check reports table in Supabase
       try {
-        const reportsChecked = sessionStorage.getItem('samo_reports_rls_checked');
-        if (!reportsChecked) {
-          const { data: rData, error: rErr } = await sb.from('reports').select('*');
-          if (!rErr && (!rData || rData.length === 0)) {
-            reportsNeedsUpload = true;
-            const { error: insRepErr } = await sb.from('reports').insert(currentReportsList);
-            if (insRepErr) {
-              sessionStorage.setItem('samo_reports_rls_checked', 'true');
-              console.info('Supabase reports table has RLS policy active; reports are securely preserved locally.');
-            } else {
-              console.log('Successfully migrated initial reports to Supabase reports table.');
-            }
+        const { data: rData, error: rErr } = await sb.from('reports').select('*');
+        if (!rErr && (!rData || rData.length === 0)) {
+          reportsNeedsUpload = true;
+          console.log('Supabase reports table is empty. Initiating bulk migration...');
+          const { error: insRepErr } = await sb.from('reports').insert(currentReportsList);
+          if (insRepErr) {
+            console.warn('Direct client reports insert note:', insRepErr.message);
           } else {
-            sessionStorage.setItem('samo_reports_rls_checked', 'true');
+            console.log('Successfully migrated initial reports to Supabase reports table.');
           }
         }
       } catch (chkRepErr) {
@@ -602,7 +555,47 @@ async function initSupabaseAuthSession() {
   setupSupabaseOrdersRealtime();
 }
 
-// Supabase Realtime Subscription for Orders is initialized via setupSupabaseOrdersRealtime() below
+// Supabase Realtime Subscription for Orders
+let supabaseOrdersSubscription = null;
+function setupSupabaseOrdersRealtime() {
+  const sb = getSupabaseClient();
+  if (!sb || typeof sb.channel !== 'function') return;
+
+  try {
+    if (supabaseOrdersSubscription) {
+      try { sb.removeChannel(supabaseOrdersSubscription); } catch (e) {}
+    }
+
+    supabaseOrdersSubscription = sb
+      .channel('orders_realtime_channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          console.log('⚡ Supabase Orders Realtime change detected:', payload.eventType, payload);
+          if (payload.eventType === 'DELETE') {
+            const oldId = payload.old?.id;
+            if (oldId) {
+              const oldIdStr = String(oldId);
+              pendingOrders = pendingOrders.filter(o => String(o.id) !== oldIdStr && String(o.orderNumber) !== oldIdStr && !String(o.orderNumber).includes(oldIdStr));
+              orders = orders.filter(o => String(o.id) !== oldIdStr && String(o.orderNumber) !== oldIdStr && !String(o.orderNumber).includes(oldIdStr));
+              saveLocalData();
+              updateIncomingBadge();
+              renderIncomingOrders();
+              renderOrdersLog();
+            }
+          }
+          // Always re-sync with remote data seamlessly
+          loadRemoteData();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Supabase orders realtime status:', status);
+      });
+  } catch (err) {
+    console.warn('setupSupabaseOrdersRealtime exception:', err);
+  }
+}
 window.setupSupabaseOrdersRealtime = setupSupabaseOrdersRealtime;
 
 // Helper: Check if a staff name or email is designated as Owner/Admin
@@ -1058,286 +1051,8 @@ async function clearStaffDraftCloud(userEmail) {
 }
 
 
-// Universal Product Normalizer: Maps fields whether coming from Supabase "samo" table or local backend/SQLite
-function normalizeProduct(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-
-  const name = String(raw.name || raw.product || raw.title || '').trim();
-  const rawQty = raw.quantity !== undefined && raw.quantity !== null && raw.quantity !== ''
-    ? raw.quantity
-    : (raw.number !== undefined && raw.number !== null && raw.number !== '' ? raw.number : 0);
-  const quantity = Math.max(0, Number(rawQty) || 0);
-
-  const rawPrice = raw.price !== undefined && raw.price !== null && raw.price !== ''
-    ? raw.price
-    : (raw.price_of_one !== undefined && raw.price_of_one !== null && raw.price_of_one !== '' ? raw.price_of_one : 0);
-  const price = Math.max(0, Number(rawPrice) || 0);
-
-  const rawMinQty = raw.minQty !== undefined && raw.minQty !== null && raw.minQty !== ''
-    ? raw.minQty
-    : (raw.limit_number !== undefined && raw.limit_number !== null && raw.limit_number !== '' ? raw.limit_number : 5);
-  const minQty = Math.max(0, Number(rawMinQty) || 5);
-
-  let expiryDate = '';
-  if (raw.expiryDate) {
-    expiryDate = String(raw.expiryDate).replace(/\\/g, '-').trim();
-  } else if (raw.expire_date) {
-    expiryDate = String(raw.expire_date).replace(/\\/g, '-').trim();
-  }
-
-  const rawTotalPrice = raw.totalPrice !== undefined && raw.totalPrice !== null && raw.totalPrice !== ''
-    ? raw.totalPrice
-    : (raw.total_price !== undefined && raw.total_price !== null && raw.total_price !== '' ? raw.total_price : (quantity * price));
-  const totalPrice = Number(rawTotalPrice) || (quantity * price);
-
-  const bonus = Math.max(0, Number(raw.bonus) || 0);
-  const barcode = typeof formatBarcode === 'function' ? formatBarcode(raw.barcode) : String(raw.barcode || '').trim();
-  const company = String(raw.company || '').trim();
-  const rawForm = raw.form || raw.category || '';
-  const form = typeof smartDetectForm === 'function' ? smartDetectForm(name, rawForm) : (rawForm || 'أخرى');
-  const image = raw.image || raw.image_url || '';
-  const createdAt = raw.createdAt || raw.created_at || new Date().toISOString();
-
-  const id = String(raw.id || (barcode ? `PROD-BC-${barcode}` : `PROD-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`));
-
-  return {
-    ...raw,
-    id,
-    name,
-    product: name,
-    quantity,
-    number: quantity,
-    price,
-    price_of_one: price,
-    minQty,
-    limit_number: minQty,
-    expiryDate,
-    expire_date: expiryDate,
-    totalPrice,
-    total_price: totalPrice,
-    bonus,
-    barcode,
-    company,
-    form,
-    category: form,
-    image,
-    image_url: image,
-    createdAt,
-    created_at: createdAt
-  };
-}
-window.normalizeProduct = normalizeProduct;
-
 // Local in-memory states
 let products = [];
-let filteredProducts = [];
-let setProducts = (p) => { 
-  const mapped = Array.isArray(p) ? p.map(normalizeProduct).filter(Boolean) : [];
-  products = mapped; 
-  filteredProducts = mapped; 
-};
-let updateUI = () => { if (typeof refreshAllUI === 'function') refreshAllUI(true); else if (typeof renderProducts === 'function') renderProducts(); };
-let isLoading = false;
-let isModalOpen = false;
-let isFetchingRemote = false;
-
-async function forceLoadMedicines() {
-  try {
-    console.log("جاري جلب المواد من samo...");
-    const sb = (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null) || (typeof supabase !== 'undefined' ? supabase : null);
-    if (!sb || typeof sb.from !== 'function') {
-      console.warn("Supabase client not initialized, fallback to API");
-      if (typeof loadRemoteData === 'function') await loadRemoteData();
-      return;
-    }
-
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase samo fetch timeout')), 3500));
-    const fetchPromise = sb.from('samo').select('*').order('id', { ascending: true });
-    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
-
-    if (error) {
-      console.warn("خطأ Supabase في قراءة الأدوية، الرجوع للنسخة المحلية:", error.message);
-      if (typeof loadRemoteData === 'function') await loadRemoteData();
-      return;
-    }
-
-    if (data && data.length > 0) {
-      console.log(`تم استلام ${data.length} مادة بنجاح من samo`);
-      const mapped = data.map(normalizeProduct).filter(Boolean);
-      products = mapped;
-      filteredProducts = mapped;
-      saveLocalData();
-      if (typeof renderProducts === 'function') renderProducts();
-      if (typeof updateUI === 'function') updateUI();
-      if (typeof refreshAllUI === 'function') refreshAllUI(true);
-      const countPill = document.getElementById('medicines-count-pill');
-      if (countPill) countPill.innerText = `${products.length} من أصل ${products.length} مادة`;
-    } else {
-      console.warn("جدول samo فارغ، جلب البيانات من API...");
-      if (typeof loadRemoteData === 'function') await loadRemoteData();
-    }
-  } catch (err) {
-    console.warn("استثناء أثناء جلب الأدوية، جلب البيانات عبر API:", err);
-    if (typeof loadRemoteData === 'function') await loadRemoteData();
-  }
-}
-window.forceLoadMedicines = forceLoadMedicines;
-
-async function loadAllProducts() {
-  try {
-    isLoading = true;
-    if (products && products.length > 0) {
-      if (typeof renderProducts === 'function') renderProducts();
-    }
-
-    const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
-    let loadedFromSupabase = false;
-
-    if (sb && typeof sb.from === 'function') {
-      try {
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase fetch timeout')), 3500));
-        const fetchPromise = sb.from('samo').select('*').order('id', { ascending: true });
-        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
-
-        if (!error && Array.isArray(data) && data.length > 0) {
-          const mapped = data.map(normalizeProduct).filter(Boolean);
-          products = mapped;
-          filteredProducts = mapped;
-          saveLocalData();
-          loadedFromSupabase = true;
-          if (typeof refreshAllUI === 'function') {
-            refreshAllUI(true);
-          } else if (typeof renderProducts === 'function') {
-            renderProducts();
-          }
-        }
-      } catch (sbErr) {
-        console.warn('Direct Supabase fetch note, falling back to server API:', sbErr.message);
-      }
-    }
-
-    if (!loadedFromSupabase) {
-      if (typeof loadRemoteData === 'function') await loadRemoteData();
-    }
-  } catch (err) {
-    console.warn("خطأ عام في جلب الأدوية:", err);
-    if (typeof loadRemoteData === 'function') await loadRemoteData();
-  } finally {
-    isLoading = false;
-  }
-}
-window.loadAllProducts = loadAllProducts;
-
-async function fetchSamoProductsDirectly(notify = false) {
-  try {
-    const sb = getSupabaseClient();
-    if (sb && typeof sb.from === 'function') {
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase fetch timeout')), 3500));
-      const fetchPromise = sb.from('samo').select('*').order('id', { ascending: true });
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
-
-      if (error) {
-        console.warn('Supabase samo fetch error, fallback to API:', error.message);
-        if (typeof loadRemoteData === 'function') await loadRemoteData();
-        return products;
-      }
-      if (data && Array.isArray(data) && data.length > 0) {
-        const mapped = data.map(normalizeProduct).filter(Boolean);
-        products = mapped;
-        filteredProducts = mapped;
-        saveLocalData();
-        refreshAllUI(true);
-        if (notify && typeof showQuickToast === 'function') {
-          showQuickToast(`تم جلب ${products.length} مادة من جدول samo في Supabase بنجاح ✓`);
-        }
-        return products;
-      }
-    }
-    if (typeof loadRemoteData === 'function') await loadRemoteData();
-    return products;
-  } catch (err) {
-    console.warn('fetchSamoProductsDirectly exception:', err);
-    if (typeof loadRemoteData === 'function') await loadRemoteData();
-    return products;
-  }
-}
-window.fetchSamoProductsDirectly = fetchSamoProductsDirectly;
-
-async function loadSamoMedicinesDirectly(notify = false) {
-  const isNotify = notify === true || (notify && typeof notify === 'object');
-  const btn = document.getElementById('refresh-medicines-btn');
-  const origText = btn ? btn.innerHTML : '';
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '⏳ جاري الجلب...';
-  }
-  if (isNotify && typeof showQuickToast === 'function') {
-    showQuickToast('⏳ جاري سحب الأدوية من قاعدة البيانات...');
-  }
-
-  try {
-    const res = await fetch('https://boaopqyzhvyzdclmoycr.supabase.co/rest/v1/samo?select=*', {
-      headers: {
-        'apikey': 'sb_publishable_5Tg1o4MnUSseRc1bw78Erg_wIQNF42I',
-        'Authorization': 'Bearer sb_publishable_5Tg1o4MnUSseRc1bw78Erg_wIQNF42I'
-      }
-    });
-
-    if (!res.ok) {
-      throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
-    }
-
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      console.log(`تم استلام ${data.length} مادة بنجاح من samo عبر REST API المباشر`);
-      products = data.map(item => ({
-        ...item,
-        id: String(item.id || (item.barcode ? `PROD-BC-${item.barcode}` : `PROD-${Date.now()}`)),
-        name: item.product || item.name || 'بدون اسم',
-        product: item.product || item.name || 'بدون اسم',
-        company: item.company || '',
-        barcode: item.barcode || '',
-        quantity: Number(item.number ?? item.quantity ?? 0),
-        number: Number(item.number ?? item.quantity ?? 0),
-        price: Number(item.price_of_one ?? item.price ?? 0),
-        price_of_one: Number(item.price_of_one ?? item.price ?? 0),
-        bonus: Number(item.bonus || 0),
-        minQty: Number(item.limit_number ?? item.minQty ?? 5),
-        expiryDate: item.expire_date || item.expiryDate || '',
-        expire_date: item.expire_date || item.expiryDate || '',
-        form: (typeof smartDetectForm === 'function' ? smartDetectForm(item.product || item.name || '', item.form || item.category || '') : (item.form || item.category || 'أخرى'))
-      }));
-
-      filteredProducts = products;
-      if (typeof saveLocalData === 'function') saveLocalData();
-      if (typeof renderProducts === 'function') renderProducts();
-      if (typeof refreshAllUI === 'function') refreshAllUI(true);
-
-      const countPill = document.getElementById('medicines-count-pill');
-      if (countPill) countPill.innerText = `${products.length} من أصل ${products.length} مادة`;
-
-      if (isNotify && typeof showQuickToast === 'function') {
-        showQuickToast(`✅ تم جلب وعرض ${products.length} مادة بنجاح ✓`);
-      }
-      return products;
-    } else {
-      console.warn("جدول samo فارغ أو غير متاح عبر REST، المحاولة عبر الخادم المحلي...");
-      if (typeof loadRemoteData === 'function') await loadRemoteData();
-      return products;
-    }
-  } catch (err) {
-    console.error("فشل جلب الأدوية المباشر، جاري الجلب عبر الخادم:", err);
-    if (typeof loadRemoteData === 'function') await loadRemoteData();
-    return products;
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = origText;
-    }
-  }
-}
-window.loadSamoMedicinesDirectly = loadSamoMedicinesDirectly;
-window.triggerFetchMedicinesFromDatabase = loadSamoMedicinesDirectly;
 let orders = [];
 let pendingOrders = [];
 let pharmacies = [];
@@ -1882,54 +1597,47 @@ function isOrderDelivered(o) {
 window.isOrderDelivered = isOrderDelivered;
 
 /**
- * Deduplicates an array of orders by key (ID or orderNumber) without duplication
+ * Deduplicates an array of orders by key (ID or orderNumber)
  */
-function setUniqueOrders(newOrdersList) {
+const setUniqueOrders = (newOrdersList) => {
   if (!Array.isArray(newOrdersList)) return [];
-  const result = [];
-  const seen = new Set();
-
+  const map = new Map();
   newOrdersList.forEach(order => {
-    if (!order) return;
-    const idKey = (order.id !== undefined && order.id !== null && String(order.id).trim() !== '') ? String(order.id).trim() : null;
-    const numKey = (order.orderNumber !== undefined && order.orderNumber !== null && String(order.orderNumber).trim() !== '') ? String(order.orderNumber).trim() : null;
-
-    if (idKey && seen.has(`id:${idKey}`)) return;
-    if (numKey && seen.has(`num:${numKey}`)) return;
-    if (idKey && seen.has(`num:${idKey}`)) return;
-    if (numKey && seen.has(`id:${numKey}`)) return;
-
-    if (idKey) seen.add(`id:${idKey}`);
-    if (numKey) seen.add(`num:${numKey}`);
-    result.push(order);
+    if (order) {
+      const key = (order.id !== undefined && order.id !== null && order.id !== '')
+        ? String(order.id)
+        : (order.orderNumber || order.order_number);
+      if (key) {
+        map.set(String(key), order);
+      }
+    }
   });
-
-  return result;
+  return Array.from(map.values());
 };
 window.setUniqueOrders = setUniqueOrders;
 
 /**
- * Fetches incoming orders from Supabase with status 'قيد المراجعة' only (excludes pending/drafts)
+ * Fetches incoming orders from Supabase and updates pendingOrders / orders state without duplicate accumulation
  */
-const fetchIncomingOrders = async () => {
+const fetchOrders = async () => {
   const supabase = getSupabaseClient();
   if (!supabase) return;
   try {
     const { data, error } = await supabase
       .from('orders')
       .select('*')
-      .eq('status', 'قيد المراجعة')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('fetchIncomingOrders error:', error.message);
-      return;
-    }
-
     if (data && Array.isArray(data)) {
-      const incomingList = data.map(supabaseOrderToAppOrder).filter(Boolean);
-      // Strictly only orders with 'قيد المراجعة'
-      pendingOrders = setUniqueOrders(incomingList.filter(o => o.status === 'قيد المراجعة'));
+      const normalized = data.map(supabaseOrderToAppOrder).filter(Boolean);
+      const unique = setUniqueOrders(normalized);
+
+      const newPending = unique.filter(x => !isApprovedOrder(x));
+      const newApproved = unique.filter(isApprovedOrder);
+
+      pendingOrders = setUniqueOrders(newPending);
+      orders = setUniqueOrders(newApproved);
+
       saveLocalData();
       updateIncomingBadge();
       updateUserOrdersBadge();
@@ -1941,116 +1649,10 @@ const fetchIncomingOrders = async () => {
       }
     }
   } catch (err) {
-    console.warn('fetchIncomingOrders exception:', err);
+    console.warn('fetchOrders exception:', err);
   }
-};
-window.fetchIncomingOrders = fetchIncomingOrders;
-
-const fetchOrders = async () => {
-  await fetchIncomingOrders();
 };
 window.fetchOrders = fetchOrders;
-
-/**
- * Realtime listener on 'orders-sync' channel for incoming orders
- */
-let ordersSyncChannel = null;
-function setupSupabaseOrdersRealtime() {
-  const supabase = getSupabaseClient();
-  if (!supabase || typeof supabase.channel !== 'function') return;
-
-  try {
-    if (ordersSyncChannel) {
-      try { supabase.removeChannel(ordersSyncChannel); } catch (e) {}
-      ordersSyncChannel = null;
-    }
-
-    ordersSyncChannel = supabase
-      .channel('orders-sync')
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, (payload) => {
-        console.log('⚡ Realtime order DELETE detected on orders-sync:', payload);
-        const deletedId = payload?.old?.id;
-        if (deletedId !== undefined && deletedId !== null) {
-          const delIdStr = String(deletedId).trim();
-          pendingOrders = pendingOrders.filter(order => String(order.id).trim() !== delIdStr && String(order.orderNumber || '').trim() !== delIdStr);
-          orders = orders.filter(order => String(order.id).trim() !== delIdStr && String(order.orderNumber || '').trim() !== delIdStr);
-          mySubmittedOrderNumbers.delete(delIdStr);
-          saveLocalData();
-          saveMyOrderNumbers();
-          updateIncomingBadge();
-          updateUserOrdersBadge();
-          renderIncomingOrders();
-          renderOrdersLog();
-        }
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-        console.log('⚡ Realtime order INSERT detected on orders-sync:', payload);
-        if (payload && payload.new) {
-          const newOrder = supabaseOrderToAppOrder(payload.new);
-          if (newOrder) {
-            if (newOrder.status === 'قيد المراجعة') {
-              const exists = pendingOrders.some(o => 
-                (newOrder.id && (String(o.id) === String(newOrder.id) || o.orderNumber === String(newOrder.id))) ||
-                (newOrder.orderNumber && (o.orderNumber === newOrder.orderNumber || String(o.id) === newOrder.orderNumber))
-              );
-              if (!exists) {
-                pendingOrders = [newOrder, ...pendingOrders];
-              }
-            } else if (isApprovedOrder(newOrder)) {
-              const exists = orders.some(o => 
-                (newOrder.id && (String(o.id) === String(newOrder.id) || o.orderNumber === String(newOrder.id))) ||
-                (newOrder.orderNumber && (o.orderNumber === newOrder.orderNumber || String(o.id) === newOrder.orderNumber))
-              );
-              if (!exists) {
-                orders = [newOrder, ...orders];
-              }
-            }
-            saveLocalData();
-            updateIncomingBadge();
-            updateUserOrdersBadge();
-            if (typeof currentTab !== 'undefined' && currentTab === 'incoming' && typeof renderIncomingOrders === 'function') {
-              renderIncomingOrders();
-            }
-            if (typeof currentTab !== 'undefined' && currentTab === 'log' && typeof renderOrdersLog === 'function') {
-              renderOrdersLog();
-            }
-          }
-        }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
-        console.log('⚡ Realtime order UPDATE detected on orders-sync:', payload);
-        if (payload && payload.new) {
-          const updated = supabaseOrderToAppOrder(payload.new);
-          if (updated) {
-            if (isApprovedOrder(updated)) {
-              pendingOrders = pendingOrders.filter(o => String(o.id) !== String(updated.id) && o.orderNumber !== updated.orderNumber);
-              orders = setUniqueOrders([updated, ...orders]);
-            } else if (updated.status === 'قيد المراجعة') {
-              orders = orders.filter(o => String(o.id) !== String(updated.id) && o.orderNumber !== updated.orderNumber);
-              pendingOrders = setUniqueOrders([updated, ...pendingOrders]);
-            }
-            saveLocalData();
-            updateIncomingBadge();
-            updateUserOrdersBadge();
-            if (typeof currentTab !== 'undefined' && currentTab === 'incoming' && typeof renderIncomingOrders === 'function') {
-              renderIncomingOrders();
-            }
-            if (typeof currentTab !== 'undefined' && currentTab === 'log' && typeof renderOrdersLog === 'function') {
-              renderOrdersLog();
-            }
-          }
-        }
-      })
-      .subscribe((status) => {
-        console.log('Supabase orders-sync status:', status);
-      });
-
-    return ordersSyncChannel;
-  } catch (err) {
-    console.warn('setupSupabaseOrdersRealtime exception:', err);
-  }
-}
-window.setupSupabaseOrdersRealtime = setupSupabaseOrdersRealtime;
 
 // In-app modal confirmation dialog (immune to iframe restrictions)
 function closeConfirmDeleteModal() {
@@ -2239,7 +1841,7 @@ function normalizeOrder(order) {
     totalAmount: Number(order.totalAmount || order.total_amount || 0),
     status,
     date: String(order.date || order.createdAt || new Date().toLocaleString('ar-IQ')).trim(),
-    createdAt: safeIsoDate(order.createdAt || order.date),
+    createdAt: String(order.createdAt || order.date || new Date().toISOString()).trim(),
     userId: String(order.userId || order.user_id || '').trim(),
     items: items.map(it => {
       const exp = getMedicineExpiry(it);
@@ -2312,12 +1914,7 @@ function saveLocalData() {
 function loadLocalData() {
   try {
     const p = localStorage.getItem('samo_local_products');
-    if (p) {
-      try {
-        products = JSON.parse(p).map(normalizeProduct).filter(Boolean);
-        filteredProducts = products;
-      } catch (e) {}
-    }
+    if (p) products = JSON.parse(p);
     const o = localStorage.getItem('samo_local_orders');
     if (o) orders = JSON.parse(o).map(normalizeOrder).filter(Boolean).filter(isApprovedOrder);
     const po = localStorage.getItem('samo_local_pending');
@@ -2347,47 +1944,29 @@ function loadLocalData() {
 }
 
 // Remote API loader with retry mechanism
+let isFetchingRemote = false;
 async function loadRemoteData(retries = 2) {
   if (isFetchingRemote) return;
   isFetchingRemote = true;
   const lbl = document.getElementById('conn-lbl');
   if (lbl) lbl.innerText = 'جاري المزامنة مع قاعدة البيانات...';
-
+  
   try {
-    const res = await fetch('https://boaopqyzhvyzdclmoycr.supabase.co/rest/v1/samo?select=*', {
-      headers: {
-        'apikey': 'sb_publishable_5Tg1o4MnUSseRc1bw78Erg_wIQNF42I',
-        'Authorization': 'Bearer sb_publishable_5Tg1o4MnUSseRc1bw78Erg_wIQNF42I'
-      }
-    });
-
+    const res = await fetch(API_URL, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
 
-    if (Array.isArray(data) && data.length > 0) {
-      products = data.map(item => ({
-        id: String(item.id),
-        name: item.product || item.name || 'بدون اسم',
-        company: item.company || '',
-        barcode: item.barcode || '',
-        quantity: Number(item.number ?? item.quantity ?? 0),
-        number: Number(item.number ?? item.quantity ?? 0),
-        price: Number(item.price_of_one ?? item.price ?? 0),
-        bonus: Number(item.bonus || 0),
-        minQty: Number(item.limit_number ?? item.minQty ?? 5),
-        expiryDate: item.expire_date || item.expiryDate || '',
-        image: item.image_url || item.image || ''
-      }));
-
-      filteredProducts = products;
-      if (typeof saveLocalData === 'function') saveLocalData();
-      if (typeof renderProducts === 'function') renderProducts();
-    }
-
     if (data && data.success) {
       if (Array.isArray(data.products)) {
-        products = data.products.map(normalizeProduct).filter(Boolean);
-        filteredProducts = products;
+        products = data.products.map(p => ({
+          ...p,
+          form: smartDetectForm(p.name, p.form),
+          quantity: Number(p.quantity) || 0,
+          minQty: Number(p.minQty) || 5,
+          price: Number(p.price) || 0,
+          totalPrice: Number(p.totalPrice) || (Number(p.quantity || 0) * Number(p.price || 0)),
+          bonus: Number(p.bonus) || 0
+        }));
       }
 
       if (Array.isArray(data.orders)) {
@@ -2396,8 +1975,8 @@ async function loadRemoteData(retries = 2) {
       }
 
       if (Array.isArray(data.pendingOrders)) {
-        // Pending orders strictly filter to 'قيد المراجعة'
-        pendingOrders = setUniqueOrders(data.pendingOrders.map(normalizeOrder).filter(Boolean).filter(x => x.status === 'قيد المراجعة'));
+        // Pending orders are all unapproved incoming orders
+        pendingOrders = setUniqueOrders(data.pendingOrders.map(normalizeOrder).filter(Boolean).filter(x => !isApprovedOrder(x)));
       }
 
       if (Array.isArray(data.pharmacies)) {
@@ -2416,7 +1995,7 @@ async function loadRemoteData(retries = 2) {
       try {
         const sbOrders = await fetchOrdersFromSupabase();
         if (Array.isArray(sbOrders) && sbOrders.length > 0) {
-          const incomingPending = sbOrders.filter(x => x.status === 'قيد المراجعة');
+          const incomingPending = sbOrders.filter(x => !isApprovedOrder(x));
           const incomingApproved = sbOrders.filter(isApprovedOrder);
           pendingOrders = setUniqueOrders([...pendingOrders, ...incomingPending]);
           orders = setUniqueOrders([...orders, ...incomingApproved]);
@@ -2480,60 +2059,6 @@ const fetchProducts = async () => {
 };
 window.fetchProducts = fetchProducts;
 
-async function handleClientFallbackAction(payload) {
-  const action = payload.action;
-  const sb = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
-  try {
-    if (action === 'new_order' && payload.order) {
-      if (sb) {
-        await sb.from('orders').insert([{
-          id: payload.order.id,
-          order_number: payload.order.orderNumber,
-          customer_name: payload.order.pharmacyName,
-          items: payload.order.items,
-          total_amount: payload.order.totalAmount,
-          status: payload.order.status || 'قيد المراجعة',
-          staff_email: payload.order.staffEmail || currentStaffEmail
-        }]);
-      }
-      return { status: 'success' };
-    }
-    if (action === 'add_product' && payload.product) {
-      if (sb) {
-        await sb.from('samo').insert([payload.product]);
-      }
-      return { status: 'success', product: payload.product };
-    }
-    if (action === 'update_product' && payload.product) {
-      if (sb) {
-        await sb.from('samo').update(payload.product).eq('id', payload.product.id);
-      }
-      return { status: 'success' };
-    }
-    if (action === 'delete_product') {
-      if (sb && payload.productId) {
-        await sb.from('samo').delete().eq('id', payload.productId);
-      }
-      return { status: 'success' };
-    }
-    if (action === 'delete_order' || action === 'discard_pending_order') {
-      if (sb && (payload.orderNumber || payload.orderId)) {
-        await sb.from('orders').delete().or(`id.eq.${payload.orderId || payload.orderNumber},order_number.eq.${payload.orderNumber || payload.orderId}`);
-      }
-      return { status: 'success' };
-    }
-    if (action === 'approve_order') {
-      if (sb && payload.orderNumber) {
-        await sb.from('orders').update({ status: 'تم التجهيز' }).eq('order_number', payload.orderNumber);
-      }
-      return { status: 'success' };
-    }
-  } catch (fallbackErr) {
-    console.warn('handleClientFallbackAction error:', fallbackErr);
-  }
-  return { status: 'success' };
-}
-
 async function postToApi(payload) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -2549,14 +2074,13 @@ async function postToApi(payload) {
     return await response.json();
   } catch (err) {
     clearTimeout(timeoutId);
-    console.warn('postToApi fallback to client action due to:', err?.message || err);
-    return await handleClientFallbackAction(payload);
+    console.error('postToApi failed:', err);
+    throw err;
   }
 }
 
 function triggerSync() {
   loadRemoteData();
-  forceLoadMedicines();
 }
 
 let postLoginRedirectTab = '';
@@ -3095,7 +2619,7 @@ const arabicMedicineAliases = {
 };
 
 // 1. دالة استخراج الشكل الدوائي من الاسم (Client-side Form Derivation)
-function getFormFromName(productName) {
+const getFormFromName = (productName) => {
   if (!productName) return 'Other';
   const parts = productName.trim().toLowerCase().split(/\s+/);
   const last = parts[parts.length - 1];
@@ -3114,14 +2638,14 @@ function getFormFromName(productName) {
   if (/^(sachet|sachets|granules|فوار)$/.test(last)) return 'Sachet';
   if (/^(supp|suppository|تحاميل)$/.test(last)) return 'Suppository';
   return 'Other';
-}
+};
 window.getFormFromName = getFormFromName;
 window.extractDosageForm = getFormFromName;
 
 /**
  * Formats addition date (created_at) for display in Arabic locale
  */
-function formatCreatedDate(dateStr) {
+const formatCreatedDate = (dateStr) => {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   return isNaN(d.getTime()) ? '' : d.toLocaleDateString('ar-EG', {
@@ -3129,7 +2653,7 @@ function formatCreatedDate(dateStr) {
     month: 'short',
     day: 'numeric'
   });
-}
+};
 window.formatCreatedDate = formatCreatedDate;
 
 // 4. محرك الفلترة (Filtered Products Engine)
@@ -4324,24 +3848,21 @@ async function handleCreateOrder(e) {
       orderPayload.staff_email = userEmail;
     }
 
-    const { data: insertedData, error } = await sb
+    const { error } = await sb
       .from('orders')
-      .insert([orderPayload])
-      .select();
+      .insert([orderPayload]);
 
     if (error) {
       console.error('فشل إدخال السجل في orders:', error);
       throw error;
     }
 
-    const finalOrderId = (insertedData && insertedData[0] && insertedData[0].id) ? String(insertedData[0].id) : orderId;
-
     // تحديث الحالة المحلية للتطبيق
     const newOrder = {
-      id: finalOrderId,
+      id: orderId,
       orderNumber: orderId,
       order_ref: orderId,
-      supabaseId: finalOrderId,
+      supabaseId: orderId,
       alreadyInSupabase: true,
       pharmacyName: customerName,
       customerName: customerName,
@@ -4365,13 +3886,12 @@ async function handleCreateOrder(e) {
     }
 
     // تسجيل رقم الطلب بقائمة طلباتي
-    mySubmittedOrderNumbers.add(finalOrderId);
     mySubmittedOrderNumbers.add(orderId);
     saveMyOrderNumbers();
-    pendingOrders = setUniqueOrders([newOrder, ...pendingOrders]);
-    saveLocalData();
-    updateIncomingBadge();
-    updateUserOrdersBadge();
+    if (!pendingOrders.some(p => p.orderNumber === orderId || p.id === orderId)) {
+      pendingOrders.unshift(newOrder);
+      saveLocalData();
+    }
 
     // تفريغ السلة وتنظيف المسودة
     cart = {};
@@ -4982,56 +4502,97 @@ window.approveAndSignOrder = approveAndSignOrder;
 // Instant & Reliable In-App Delete Order Functions
 
 /**
- * Direct & explicit delete order from Supabase for Employee / Pharmacy View "طلباتي"
+ * Staff order deletion logic:
+ * 1. Checks if status === 'approved' / معتمد -> alerts: "لا يمكن حذف طلبية معتمدة تم ترحيلها للمخزن والحسابات."
+ * 2. If status === 'pending' / غير معتمد -> deletes from Supabase orders table (.eq('id', orderId).eq('status', 'pending'))
+ * 3. Alerts on error or success: "تم حذف الطلبية بنجاح وإلغاؤها من سجل المذخر."
  */
-const handleDeleteMyOrder = async (orderId) => {
-  if (!window.confirm("هل أنت متأكد من حذف هذه الطلبية نهائياً؟")) return;
-
-  try {
-    const sb = (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null) || (typeof supabase !== 'undefined' ? supabase : null);
-    if (!sb) throw new Error("تعذر الاتصال بقاعدة بيانات Supabase");
-
-    // 1. الحذف من Supabase مباشرة بالاعتماد على id
-    const { error } = await sb
-      .from('orders')
-      .delete()
-      .eq('id', orderId);
-
-    if (error) throw error;
-
-    // 2. تحديث قائمة "طلباتي" للموظف محلياً
-    const orderIdStr = String(orderId);
-    pendingOrders = pendingOrders.filter(o => String(o.id) !== orderIdStr && String(o.orderNumber) !== orderIdStr);
-    orders = orders.filter(o => String(o.id) !== orderIdStr && String(o.orderNumber) !== orderIdStr);
-    mySubmittedOrderNumbers.delete(orderIdStr);
-
-    saveLocalData();
-    saveMyOrderNumbers();
-    updateIncomingBadge();
-    updateUserOrdersBadge();
-    renderOrdersLog();
-    renderIncomingOrders();
-
-    try {
-      await postToApi({ action: 'delete_order', orderNumber: orderIdStr, orderId });
-    } catch (apiErr) {
-      console.warn("Backend API sync warning on staff delete:", apiErr);
-    }
-
-    alert("تم إلغاء وحذف الطلبية بنجاح");
-  } catch (err) {
-    console.error("فشل حذف الطلب:", err);
-    alert("تعذر حذف الطلبية: " + (err.message || err));
-  }
-};
-window.handleDeleteMyOrder = handleDeleteMyOrder;
-
 async function deleteOrderByStaff(orderNumber) {
   const strNum = String(orderNumber || '').trim();
-  const target = pendingOrders.find(o => String(o.orderNumber || '').trim() === strNum || String(o.id) === strNum) ||
-                 orders.find(o => String(o.orderNumber || '').trim() === strNum || String(o.id) === strNum);
-  const orderId = target?.id || strNum;
-  return handleDeleteMyOrder(orderId);
+  if (!strNum) return;
+
+  const foundPending = pendingOrders.find(o => String(o.orderNumber || '').trim() === strNum || String(o.id) === strNum);
+  const foundOrder = orders.find(o => String(o.orderNumber || '').trim() === strNum || String(o.id) === strNum);
+  const target = foundPending || foundOrder;
+
+  if (!target) {
+    alert("لم يتم العثور على الطلبية المطلوبة.");
+    return;
+  }
+
+  // 1. Check order status
+  const rawStatus = String(target.status || '').toLowerCase().trim();
+  const isApproved = rawStatus === 'approved' || rawStatus === 'معتمد' || rawStatus === 'معتمد للتجهيز' || rawStatus === 'مجهزة' || rawStatus === 'مستلم' || rawStatus === 'مسلّم' || isApprovedOrder(target);
+
+  if (isApproved) {
+    alert("لا يمكن حذف طلبية معتمدة تم ترحيلها للمخزن والحسابات.");
+    return;
+  }
+
+  const phName = target.pharmacyName ? ` للصيدلية (${target.pharmacyName})` : '';
+  if (!confirm(`هل أنت متأكد من حذف الطلبية (${strNum})${phName} نهائياً وإلغائها؟`)) {
+    return;
+  }
+
+  // Resolve numeric or string ID for Supabase
+  let orderId = target.id;
+  if (!orderId) {
+    const match = strNum.match(/ORD-SB-(\d+)/);
+    if (match) {
+      orderId = Number(match[1]);
+    } else if (!isNaN(Number(strNum))) {
+      orderId = Number(strNum);
+    } else {
+      orderId = strNum;
+    }
+  } else if (!isNaN(Number(orderId))) {
+    orderId = Number(orderId);
+  }
+
+  // 2. Delete immediately from Supabase orders table (where status is pending)
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    let query = supabase.from('orders').delete();
+    if (typeof orderId === 'number') {
+      query = query.eq('id', orderId);
+    } else {
+      query = query.eq('id', orderId);
+    }
+    query = query.eq('status', 'pending');
+
+    const { error } = await query;
+    if (error) {
+      alert("فشل حذف الطلبية من السيرفر: " + error.message);
+      return;
+    }
+  }
+
+  // Also sync with server backend
+  try {
+    await postToApi({ action: 'delete_order', orderNumber: strNum, orderId });
+  } catch (apiErr) {
+    console.warn("Backend API sync warning on staff delete:", apiErr);
+  }
+
+  // 3. Update local state and UI
+  pendingOrders = pendingOrders.filter(o => String(o.orderNumber || '').trim() !== strNum && String(o.id) !== String(orderId));
+  orders = orders.filter(o => String(o.orderNumber || '').trim() !== strNum && String(o.id) !== String(orderId));
+  mySubmittedOrderNumbers.delete(strNum);
+  selectedOrderNumbersToMerge.delete(strNum);
+
+  saveLocalData();
+  saveMyOrderNumbers();
+  updateIncomingBadge();
+  updateCartBadge();
+  updateSelectedOrdersToMergeUI();
+  renderProducts();
+  renderOrdersLog();
+  renderIncomingOrders();
+  closeInspectModal();
+  closeEditSentOrderModal();
+
+  alert("تم حذف الطلبية بنجاح وإلغاؤها من سجل المذخر.");
+  loadRemoteData();
 }
 window.deleteOrderByStaff = deleteOrderByStaff;
 
@@ -5086,7 +4647,16 @@ async function executeDeleteOrderByNumber(orderNumber) {
   // 1. Direct Cloud Delete in Supabase via Real ID
   const sb = getSupabaseClient();
   if (sb) {
-    let q = sb.from('orders').delete().eq('id', orderId);
+    let q = sb.from('orders').delete();
+    if (typeof orderId === 'number') {
+      q = q.eq('id', orderId);
+    } else {
+      q = q.eq('id', orderId);
+    }
+    if (!isAppr) {
+      q = q.eq('status', 'pending');
+    }
+
     const { error } = await q;
     if (error) {
       console.error("فشل الحذف من السيرفر:", error);
@@ -5477,7 +5047,7 @@ function isOrderVisibleInLog(o) {
 
   // Regular user fallback: strictly show orders sent from this device/user
   const isMineByUserId = Boolean(o.userId && o.userId === myUserId);
-  const isMineByOrderNumber = mySubmittedOrderNumbers.has(String(o.orderNumber)) || (o.id && mySubmittedOrderNumbers.has(String(o.id)));
+  const isMineByOrderNumber = mySubmittedOrderNumbers.has(String(o.orderNumber));
   return isMineByUserId || isMineByOrderNumber;
 }
 
@@ -5560,7 +5130,7 @@ function renderOrdersLog() {
               <button class="btn" style="flex:1;justify-content:center;background:#0284c7;padding:8px 12px;font-size:12px;font-weight:800;" onclick="openEditSentOrderModal('${o.orderNumber}')">
                 ✏️ تعديل الطلب
               </button>
-              <button class="btn btn-sec" style="color:#ef4444;border-color:#fca5a5;background:#fef2f2;padding:8px 12px;font-size:12px;font-weight:800;" onclick="handleDeleteMyOrder('${o.id || o.orderNumber}')">
+              <button class="btn btn-sec" style="color:#ef4444;border-color:#fca5a5;background:#fef2f2;padding:8px 12px;font-size:12px;font-weight:800;" onclick="deleteOrderByStaff('${o.orderNumber}')">
                 🗑️ إلغاء وحذف الطلب
               </button>
               <button class="btn btn-sec" style="padding:8px 12px;font-size:12px;font-weight:700;" onclick="printOrderA4('${o.orderNumber}')">
@@ -11475,78 +11045,12 @@ function makeElementDraggable(el) {
 }
 
 // Start application
-function resetUIInteractivity() {
-  try {
-    isSubmitting = false;
-    isLoading = false;
-    isModalOpen = false;
-    document.body.style.pointerEvents = 'auto';
-    // Remove stuck modal overlays if any were left over
-    document.querySelectorAll('.modal-overlay').forEach(m => {
-      if (!m.classList.contains('confirm-dialog-top')) {
-        m.classList.remove('is-open');
-        m.style.display = 'none';
-      }
-    });
-    const loaders = document.querySelectorAll('.loading-overlay, .spinner-overlay, #global-loader');
-    loaders.forEach(l => {
-      l.style.display = 'none';
-      l.classList.remove('active', 'is-open');
-    });
-  } catch (err) {
-    console.warn('resetUIInteractivity warning:', err);
-  }
-}
-window.resetUIInteractivity = resetUIInteractivity;
-
-function startAppLifecycle() {
-  resetUIInteractivity();
-  
-  // Global click safety to ensure no unhandled error freezes UI
-  document.addEventListener('click', (e) => {
-    try {
-      // If user clicks anywhere, ensure body pointer events is auto
-      if (document.body.style.pointerEvents === 'none') {
-        document.body.style.pointerEvents = 'auto';
-      }
-    } catch (e2) {}
-  }, true);
-
-  // 1. Reset search box and default filters so no default filter blocks items
-  const searchBox = document.getElementById('search-box');
-  if (searchBox) searchBox.value = '';
-  const filterForm = document.getElementById('filter-form');
-  if (filterForm) filterForm.value = 'ALL';
-  const filterStock = document.getElementById('filter-stock');
-  if (filterStock) filterStock.value = '';
-  const filterCompany = document.getElementById('filter-company');
-  if (filterCompany) filterCompany.value = 'ALL';
-  const filterExpiry = document.getElementById('filter-expiry');
-  if (filterExpiry) filterExpiry.value = '';
-
+window.addEventListener('DOMContentLoaded', () => {
   loadLocalData();
   applyAdminState();
   initSupabaseAuthSession();
   fetchCustomers();
-
-  // If we already have products from local data, render them immediately so user never sees a blank screen!
-  if (products && products.length > 0) {
-    if (typeof renderProducts === 'function') renderProducts();
-    if (typeof refreshAllUI === 'function') refreshAllUI(true);
-  }
-
-  // 2. Fetch products automatically from samo table in Supabase via loadSamoMedicinesDirectly at app startup
-  loadSamoMedicinesDirectly(false).then((prods) => {
-    if (!prods || prods.length === 0) {
-      loadRemoteData();
-    } else {
-      if (typeof renderProducts === 'function') renderProducts();
-      if (typeof refreshAllUI === 'function') refreshAllUI(true);
-    }
-  }).catch(() => {
-    loadRemoteData();
-  });
-
+  loadRemoteData();
   setupSupabaseOrdersRealtime();
   checkAndMigrateStaffAndReports(false);
   checkSamoLowStockAlerts();
@@ -11575,14 +11079,7 @@ function startAppLifecycle() {
   initDraggableWarehouseBadge();
   const floatBtn = document.querySelector('.floating-send-btn');
   if (floatBtn) makeElementDraggable(floatBtn);
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startAppLifecycle);
-} else {
-  // If DOM is already interactive or complete, start immediately!
-  startAppLifecycle();
-}
+});
 
 // Google Auth & Staff Account Global Bindings
 window.openGoogleAuthModal = openGoogleAuthModal;
@@ -11659,22 +11156,21 @@ async function triggerSupabaseSyncNow() {
   const oldText = btn ? btn.innerText : '';
   if (btn) {
     btn.disabled = true;
-    btn.innerText = '⏳ جاري جلب ومزامنة الأدوية من قاعدة البيانات...';
+    btn.innerText = '⏳ جاري جلب ومزامنة 887 مادة من Supabase...';
   }
-  showQuickToast('⏳ جاري جلب ومزامنة الأدوية من قاعدة البيانات (Supabase)...');
 
   try {
     const res = await fetch('/api/supabase/sync', { method: 'POST' });
     const data = await res.json();
     if (data.success) {
       showToast(`✅ ${data.message}`, 'success');
-      showQuickToast(`✅ ${data.message}`);
+      alert(`✅ ${data.message}`);
       await loadRemoteData(1);
     } else {
-      showQuickToast('⚠️ فشلت المزامنة: ' + (data.error || 'خطأ غير معروف'), 'warning');
+      alert('⚠️ فشلت المزامنة: ' + (data.error || 'خطأ غير معروف'));
     }
   } catch (err) {
-    showQuickToast('حدث خطأ في جلب بيانات قاعدة البيانات: ' + err.message, 'warning');
+    alert('حدث خطأ في جلب بيانات Supabase: ' + err.message);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -11691,9 +11187,14 @@ window.triggerSupabaseSyncNow = triggerSupabaseSyncNow;
 // ==========================================
 
 async function saveReportToSupabase(reportData) {
+  const sb = getSupabaseClient();
+  if (!sb) {
+    alert("⚠️ تعذر الاتصال بـ Supabase (العميل غير متوفر)");
+    return null;
+  }
   try {
     const repType = reportData.report_type || reportData.type || reportData.title || 'مبيعات يومية';
-    const repDate = safeDateOnly(reportData.report_date || reportData.created_at || reportData.createdAt);
+    const repDate = reportData.report_date || new Date().toISOString().slice(0, 10);
     const summaryVal = typeof reportData.summary === 'string' && reportData.summary
       ? reportData.summary
       : (typeof reportData.content === 'object'
@@ -11701,7 +11202,7 @@ async function saveReportToSupabase(reportData) {
           : String(reportData.content || reportData.summary || '{}'));
     const totalSales = Number(reportData.total_sales || reportData.totalDispatched || 0);
     const author = reportData.generated_by || reportData.generated_by_email || reportData.generatedBy || currentStaffEmail || 'صاحب المذخر';
-    const createdAt = safeIsoDate(reportData.created_at || reportData.createdAt);
+    const createdAt = reportData.created_at || reportData.createdAt || new Date().toISOString();
 
     const payload = {
       report_type: repType,
@@ -11712,139 +11213,26 @@ async function saveReportToSupabase(reportData) {
       created_at: createdAt
     };
 
-    const sb = getSupabaseClient();
-    let saved = false;
+    const { data, error } = await sb.from('reports').insert([payload]).select();
 
-    if (sb) {
-      try {
-        const { data, error } = await sb.from('reports').insert([payload]).select();
-        if (!error && data) {
-          saved = true;
-        } else if (error && (error.message.includes('row-level security') || error.code === '42501')) {
-          console.info('Supabase reports table has RLS policy active; persisting to database via server API.');
-        } else if (error) {
-          console.warn('Supabase reports insert note:', error.message);
-        }
-      } catch (sbErr) {
-        console.warn('Supabase direct insert exception:', sbErr);
-      }
-    }
-
-    // Always persist to server API for consistency and reliability
-    try {
-      await fetch('/api/supabase/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      saved = true;
-    } catch (srvErr) {
-      console.warn('Server report save note:', srvErr);
+    if (error) {
+      console.error('Supabase reports insert error:', error);
+      alert(`⚠️ خطأ أثناء حفظ التقرير في Supabase:\n${error.message}`);
+      return null;
     }
 
     if (typeof showQuickToast === 'function') {
-      showQuickToast('تم حفظ التقرير في قاعدة البيانات بنجاح ✓');
+      showQuickToast('تم حفظ التقرير في جدول reports في Supabase بنجاح ✓');
     }
     fetchReportsFromSupabaseDirect();
-    return [payload];
+    return data;
   } catch (err) {
     console.error('Exception in saveReportToSupabase:', err);
-    if (typeof showQuickToast === 'function') {
-      showQuickToast(`ملاحظة أثناء حفظ التقرير: ${err.message}`, 'info');
-    }
+    alert(`⚠️ استثناء أثناء حفظ التقرير: ${err.message}`);
     return null;
   }
 }
 window.saveReportToSupabase = saveReportToSupabase;
-
-async function saveDetailedReportToCloud() {
-  const phSet = new Set(orders.concat(pendingOrders).map(o => o.pharmacyName || o.customerName).filter(Boolean));
-  let totalStockVal = 0;
-  products.forEach(p => {
-    const q = Number(p.quantity ?? p.number ?? 0);
-    const pr = Number(p.price ?? 0);
-    totalStockVal += q * pr;
-  });
-
-  const totalDispatched = orders.reduce((acc, o) => acc + (Number(o.totalAmount) || 0), 0);
-  const author = currentStaffEmail || currentStaff || 'صاحب المذخر';
-
-  const reportContent = {
-    title: `تقرير المذخر والنشاط اليومي - ${new Date().toLocaleDateString('ar-IQ')}`,
-    pharmaciesCount: phSet.size || pharmacies.length,
-    ordersCount: orders.length + pendingOrders.length,
-    productsCount: products.length,
-    itemsCount: products.length,
-    totalStockVal: totalStockVal,
-    totalDispatched: totalDispatched,
-    totalSales: totalDispatched,
-    generatedBy: author,
-    timestamp: new Date().toISOString()
-  };
-
-  const reportData = {
-    report_type: 'تقرير مالي ومخزني',
-    report_date: new Date().toISOString().slice(0, 10),
-    summary: JSON.stringify(reportContent),
-    total_sales: totalDispatched,
-    generated_by: author,
-    created_at: new Date().toISOString()
-  };
-
-  await saveReportToSupabase(reportData);
-}
-window.saveDetailedReportToCloud = saveDetailedReportToCloud;
-
-async function logInventoryMovementExtended(productId, productName, oldQty, newQty, changeType) {
-  return recordInventoryLog({
-    actionType: changeType || 'تعديل رصيد',
-    itemName: productName || 'مادة',
-    details: {
-      previous_qty: Number(oldQty) || 0,
-      new_qty: Number(newQty) || 0,
-      product_id: productId
-    }
-  });
-}
-window.logInventoryMovementExtended = logInventoryMovementExtended;
-
-async function fetchReportsForContainer(showToast = false) {
-  const container = document.getElementById('supabase-reports-container');
-  if (container) {
-    container.innerHTML = `<div style="text-align:center; padding:15px; color:var(--ios-sub); font-size:12px;">⏳ جاري جلب التقارير من Supabase (جدول reports)...</div>`;
-  }
-  try {
-    const sb = getSupabaseClient();
-    if (!sb) return [];
-
-    const { data, error } = await sb
-      .from('reports')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching reports from Supabase:', error);
-      if (container) {
-        container.innerHTML = `<div style="color:#ef4444; padding:12px; font-size:12px; text-align:center;">⚠️ خطأ في جلب التقارير: ${escapeHtml(error.message || String(error))}</div>`;
-      }
-      return [];
-    }
-
-    if (showToast && typeof showQuickToast === 'function') {
-      showQuickToast(`تم تحديث التقارير من Supabase بنجاح (${data ? data.length : 0} تقرير) ✓`);
-    }
-
-    renderReportsListUI(data || []);
-    return data || [];
-  } catch (err) {
-    console.error('Exception fetching reports:', err);
-    if (container) {
-      container.innerHTML = `<div style="color:#ef4444; padding:12px; font-size:12px; text-align:center;">⚠️ تعذر الاتصال بـ Supabase لجلب التقارير.</div>`;
-    }
-    return [];
-  }
-}
-window.fetchReportsForContainer = fetchReportsForContainer;
 
 function renderReportsListUI(reportsList) {
   const container = document.getElementById('supabase-reports-container');
@@ -12336,5 +11724,6 @@ window.formatBarcodeDisplay = formatBarcodeDisplay;
 window.openSendModal = openSendModal;
 window.closeSendModal = closeSendModal;
 window.openOrderModal = typeof openSendModal === 'function' ? openSendModal : function() {};
+
 
 
